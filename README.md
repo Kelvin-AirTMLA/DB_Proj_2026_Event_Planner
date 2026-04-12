@@ -102,6 +102,25 @@ The app supports organizing and managing events such as conferences, workshops, 
 
 ---
 
+## Design decisions
+
+Single source of detail: [`docs/specification.md`](docs/specification.md) (§5.3, §6, §10). Summary:
+
+| Topic | Decision |
+|--------|-----------|
+| **Payments** | **One payment row per booking** (`booking_id` unique). |
+| **Venue** | Every event has a venue — **`events.venue_id` NOT NULL**. |
+| **Event status** | `pending`, `ongoing`, `done`. |
+| **Booking status** | `pending`, `confirmed`, `cancelled`. |
+| **Payment status** | `pending`, `completed`, `failed`. |
+| **Revenue** | Sum amounts only when **`payment_status = 'completed'`**. |
+| **Currency** | **EUR**. |
+| **Refunds** | None (see spec §3.4). |
+| **FK deletes** | **`ON DELETE CASCADE`** on all foreign keys (see spec §9). |
+| **Users** | **`username` UNIQUE**; **`email` not unique** (see spec §5.3, §8). |
+
+---
+
 ## Proposed schema (draft)
 
 ### `organizers`
@@ -110,7 +129,7 @@ The app supports organizing and managing events such as conferences, workshops, 
 
 ### `users`
 
-- `user_id`, `full_name`, `email`, `phone`, `created_at`
+- `user_id`, `username` (unique), `full_name`, `email` (required, not unique), `phone`, `created_at`
 
 ### `venues`
 
@@ -118,7 +137,7 @@ The app supports organizing and managing events such as conferences, workshops, 
 
 ### `events`
 
-- `event_id`, `organizer_id`, `venue_id`, `event_name`, `description`, `category`, `start_datetime`, `end_datetime`, `status`, `created_at`
+- `event_id`, `organizer_id`, `venue_id` (required), `event_name`, `description`, `category`, `start_datetime` (required), `end_datetime` (required), `status`, `created_at`
 
 ### `ticket_types`
 
@@ -156,8 +175,8 @@ Target volumes for realistic demos and meaningful query results:
 - 10 events  
 - 20 ticket types  
 - 30–50 bookings  
-- Payments for bookings  
-- Check-ins for some completed bookings  
+- **One payment per booking** (include some `pending` / `failed` for realism; revenue uses `completed` only)  
+- Check-ins for a subset of past / `done` events (not every booking)  
 
 ---
 
@@ -166,6 +185,7 @@ Target volumes for realistic demos and meaningful query results:
 Suggested indexes on foreign keys and hot columns:
 
 - `events.organizer_id`, `events.venue_id`  
+- `events.start_datetime` (time-range browse / “upcoming” lists)  
 - `ticket_types.event_id`  
 - `bookings.user_id`, `bookings.ticket_type_id`  
 - `payments.booking_id`  
