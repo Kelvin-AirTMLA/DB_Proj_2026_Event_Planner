@@ -216,5 +216,3 @@ Complete the **minimum database requirements** first; deployment can follow.
 ## Guiding principle
 
 Keep the project **simple, clean, and database-focused**. A smaller, correct submission is better than an overambitious, messy one.
-
-
