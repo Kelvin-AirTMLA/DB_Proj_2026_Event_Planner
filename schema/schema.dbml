@@ -1,0 +1,103 @@
+// Event Management App — aligns with docs/specification.md §8–§9, §11
+// Import at https://dbdiagram.io to generate ERD and export SQL
+
+Table organizers {
+  organizer_id integer [pk, increment]
+  organizer_name varchar(200) [not null]
+  email varchar(255) [not null, unique]
+  phone varchar(50)
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table users {
+  user_id integer [pk, increment]
+  username varchar(50) [not null, unique]
+  full_name varchar(200) [not null]
+  email varchar(255) [not null, note: 'duplicate emails allowed']
+  phone varchar(50)
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table venues {
+  venue_id integer [pk, increment]
+  venue_name varchar(200) [not null]
+  address varchar(300) [not null]
+  city varchar(100) [not null]
+  capacity integer [not null, note: '> 0 in DDL CHECK']
+}
+
+Table events {
+  event_id integer [pk, increment]
+  organizer_id integer [not null]
+  venue_id integer [not null]
+  event_name varchar(200) [not null]
+  description text
+  category varchar(100)
+  start_datetime timestamp [not null]
+  end_datetime timestamp [not null, note: 'CHECK end > start in DDL']
+  status varchar(50) [not null, note: 'pending | ongoing | done']
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    (organizer_id)
+    (venue_id)
+    (start_datetime)
+  }
+}
+
+Table ticket_types {
+  ticket_type_id integer [pk, increment]
+  event_id integer [not null]
+  ticket_name varchar(120) [not null]
+  price decimal(10,2) [not null, note: '>= 0 in DDL CHECK']
+  quantity_available integer [not null, note: '>= 0 in DDL CHECK']
+
+  Indexes {
+    (event_id)
+  }
+}
+
+Table bookings {
+  booking_id integer [pk, increment]
+  user_id integer [not null]
+  ticket_type_id integer [not null]
+  quantity integer [not null, note: '>= 1 in DDL CHECK']
+  booking_date timestamp [not null, default: `now()`]
+  booking_status varchar(50) [not null, note: 'pending | confirmed | cancelled']
+
+  Indexes {
+    (user_id)
+    (ticket_type_id)
+  }
+}
+
+Table payments {
+  payment_id integer [pk, increment]
+  booking_id integer [not null, unique]
+  amount decimal(10,2) [not null, note: '>= 0 in DDL CHECK']
+  payment_method varchar(50) [not null]
+  payment_status varchar(50) [not null, note: 'pending | completed | failed']
+  payment_date timestamp [not null]
+}
+
+Table check_ins {
+  check_in_id integer [pk, increment]
+  booking_id integer [not null, unique]
+  check_in_time timestamp [not null]
+  checked_in_by integer [note: 'FK organizers; optional']
+}
+
+// --- Foreign keys: ON DELETE CASCADE (spec §9) ---
+
+Ref: events.organizer_id > organizers.organizer_id [delete: cascade]
+Ref: events.venue_id > venues.venue_id [delete: cascade]
+
+Ref: ticket_types.event_id > events.event_id [delete: cascade]
+
+Ref: bookings.user_id > users.user_id [delete: cascade]
+Ref: bookings.ticket_type_id > ticket_types.ticket_type_id [delete: cascade]
+
+Ref: payments.booking_id > bookings.booking_id [delete: cascade]
+
+Ref: check_ins.booking_id > bookings.booking_id [delete: cascade]
+Ref: check_ins.checked_in_by > organizers.organizer_id [delete: cascade]
