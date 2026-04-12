@@ -118,7 +118,7 @@ The app supports organizing and managing events such as conferences, workshops, 
 
 ### `events`
 
-- `event_id`, `organizer_id`, `venue_id`, `event_name`, `description`, `category`, `start_datetime`, `end_datetime`, `status`, `created_at`
+- `event_id`, `organizer_id`, `venue_id`, `event_name`, `description`, `category`, `start_datetime` (required), `end_datetime` (required), `status`, `created_at`
 
 ### `ticket_types`
 

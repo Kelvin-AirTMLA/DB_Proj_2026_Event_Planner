@@ -6,6 +6,8 @@
 
 ---
 
+## BIG NOTE: ORGANIZERS PLAN THE EVENT, USERS DECIDED IF THEY WANT TO GO FOR IT!!!
+
 ## 1. Document readiness checklist (course alignment)
 
 Use this to know when “docs are ready” before implementation.
@@ -38,7 +40,7 @@ Use this to know when “docs are ready” before implementation.
 ### 3.1 In scope
 
 - *Organizers have the ability to create and display events on ui and manage them as well.*
-- Users should be able to browse events.
+- Users should be able to browse events, including **filters by time range** (e.g. “this week”, custom from/to) using `events.start_datetime` / `events.end_datetime` — **UI/query only**, no schema change beyond indexes (§11).
 - Users should be able to book tickets.
 - Payments are stored and recorded.
 - Main feature: Organizers should be able to monitor check-ins.
@@ -48,7 +50,34 @@ Use this to know when “docs are ready” before implementation.
 ### 3.2 Out of scope
 
 - *Event Recommendations or any sort of recommendations are not required*
-- 
+- In-built Maps are not required - adds unnecessary complexity, Google Maps or Apple Maps can do the job.
+- **Refunds** — see §3.4 (no refund workflow; keeps the schema small).
+
+### 3.3 Event timing (where it lives)
+
+**Yes.** Each **event** has its schedule on the `**events`** row:
+
+- `start_datetime` — when the event begins (**required**, NOT NULL)  
+- `end_datetime` — when it ends (**required**, NOT NULL). Every event must have a defined end; no “open-ended” events in the schema.
+
+Use these for listings, **browse filters** (e.g. `WHERE start_datetime >= $from AND start_datetime < $to`), overlap warnings (§3.5), and “events in the last 3 months” style queries.
+
+You do **not** need separate `start_time` / `end_time` columns if you already store **full timestamps** — the app can still show “date + time” in the UI. Add separate `DATE`/`TIME` columns only if the course explicitly wants them; otherwise one `TIMESTAMP` per boundary is simpler and index-friendly.
+
+### 3.4 No refund policy
+
+**Policy:** All sales are **final**. There is **no** refund, partial credit, chargeback, or reversal workflow in this project.
+
+**Why:** Refunds usually mean extra tables or states (`refund_requests`, `refunds`, negative payments, linking reversals to original payments) and more rules for revenue queries. Skipping that matches a **database-focused** course scope.
+
+**Schema impact:** Keep a single `**payments`** row per booking (§8). Do **not** model refund transactions. If `payment_status` includes `failed`, that only means the customer was never successfully charged — not a refund after success.
+
+### 3.5 Overlapping events (booking UX)
+
+If a user already has a **confirmed** (or paid) booking for an event, and they try to book **another event whose time overlaps** (compare `events.start_datetime` / `events.end_datetime`, reached via `ticket_types.event_id`), the app should **show a warning** (e.g. “You already have something at this time”) but **must not block** the booking. Users may change their mind, prefer a different event, or cancel later.
+
+- **Implementation:** This is **application-level** behavior (check before `INSERT` into `bookings`), not a database refusal rule. The schema **does not** use a constraint that forbids overlapping bookings for one user.
+- **Database:** Still allows multiple overlapping bookings per user; optional later: `booking_status` / cancellations to reflect what they actually attend.
 
 ---
 
@@ -56,14 +85,15 @@ Use this to know when “docs are ready” before implementation.
 
 Numbered flows for the report. Adjust wording to match your final UX, but keep the **data** implications.
 
-1. *TODO*
-2. *TODO*
-3. *TODO*
-4. *TODO*
-5. *TODO*
-6. *TODO*
-7. *TODO*
-8. *TODO*
+1. Organizer signs up → **creates organizer row**
+2. Organizer creates an event → **event row**, links to organizer (and maybe venue)
+3. Organizer picks venue and ticket types → still **events row**
+4. User browses events → **read** events (filters, lists)
+5. User signs up -> ***User** row*
+6. User books tickets → **booking** row *(if times overlap another of their bookings → **warn**, still allow)*
+7. Payment happens → **payment** row linked to booking *(no refunds — §3.4)*
+8. Check-in at the door → **check_in** row
+9. Organizer views stats → **queries** over bookings, payments, check-ins
 
 ---
 
@@ -74,16 +104,16 @@ Numbered flows for the report. Adjust wording to match your final UX, but keep t
 For each entity: purpose, primary key name, and main attributes (name + type + NULL allowed? + default?).
 
 
-| Entity       | PK  | Notes |
-| ------------ | --- | ----- |
-| organizers   |     |       |
-| users        |     |       |
-| venues       |     |       |
-| events       |     |       |
-| ticket_types |     |       |
-| bookings     |     |       |
-| payments     |     |       |
-| check_ins    |     |       |
+| Entity       | PK               | Notes                                                                                                                                              |
+| ------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| organizers   | `organizer_id`   | Account that creates/manages events. `email` should be UNIQUE.                                                                                     |
+| users        | `user_id`        | Attendee accounts (browse + book). Separate from organizers. `email` UNIQUE.                                                                       |
+| venues       | `venue_id`       | Physical location; `capacity` supports realistic ticketing.                                                                                        |
+| events       | `event_id`       | One scheduled event; `**start_datetime` and `end_datetime` are both required**; FK to organizer; FK to venue (nullable if you allow “TBD/online”). |
+| ticket_types | `ticket_type_id` | Ticket tier for one event (`price`, `quantity_available`).                                                                                         |
+| bookings     | `booking_id`     | **One row = one user + one ticket type + `quantity`.** Not a multi-line “cart.”                                                                    |
+| payments     | `payment_id`     | **1:1 with booking**; **no refunds** (§3.4) — no reversal/refund tables.                                                                           |
+| check_ins    | `check_in_id`    | At most one per booking (no-show = no row). `checked_in_by` = which organizer/staff recorded it.                                                   |
 
 
 ### 5.2 Relationship summary
@@ -91,21 +121,22 @@ For each entity: purpose, primary key name, and main attributes (name + type + N
 *State cardinality and optionality (e.g. “event N—1 venue, venue optional? Y/N”).*
 
 
-| From        | To           | Cardinality | Notes |
-| ----------- | ------------ | ----------- | ----- |
-| organizer   | events       | 1:N         |       |
-| venue       | events       | 1:N         |       |
-| event       | ticket_types | 1:N         |       |
-| user        | bookings     | 1:N         |       |
-| ticket_type | bookings     | 1:N         |       |
-| booking     | payments     | 1:1         |       |
-| booking     | check_ins    | 1:0..1      |       |
+| From        | To           | Cardinality | Notes                                                                                                   |
+| ----------- | ------------ | ----------- | ------------------------------------------------------------------------------------------------------- |
+| organizer   | events       | 1:N         | Every event has exactly one organizer (`organizer_id` NOT NULL).                                        |
+| venue       | events       | 1:N         | Venue optional: `events.venue_id` NULL = TBD/online; NOT NULL = fixed place. **Pick one rule for DDL.** |
+| event       | ticket_types | 1:N         | Event must exist before tiers; deleting event affects tiers (decide CASCADE vs RESTRICT).               |
+| user        | bookings     | 1:N         | `bookings.user_id` NOT NULL.                                                                            |
+| ticket_type | bookings     | 1:N         | `bookings.ticket_type_id` NOT NULL.                                                                     |
+| booking     | payments     | 1:1         | Each booking has exactly one payment row when you model it this way.                                    |
+| booking     | check_ins    | 1:0..1      | Optional row after check-in; unique on `booking_id` in DDL.                                             |
 
 
 ### 5.3 Open design questions *(resolve before DDL)*
 
-- Can one **booking** include multiple **ticket types**, or one row per ticket type? *(current README assumes one `ticket_type_id` per booking)*
-- What **booking_status** and **payment_status** values are allowed? *(enum list)*
+- **Booking model (decided for baseline):** one **booking** row = one **user** + one **ticket type** + `**quantity`**. Multiple ticket types for the “same purchase” = multiple booking rows.
+- **Venue on event:** allow `venue_id` NULL or require NOT NULL — choose and match seed data.
+- What **booking_status** and **payment_status** values are allowed? *(enum list — e.g. `pending`, `confirmed`, `cancelled` / `pending`, `completed`, `failed`)*
 - What **event.status** values mean “past” for attendance-rate queries?
 - Is **revenue** counted only when `payment_status = 'completed'` (or similar)?
 
@@ -140,12 +171,12 @@ Document intended result columns so implementation matches the report.
 
 ### Query 1 — Attendees per event
 
-- **Expected columns:** *e.g. `event_id`, `event_name`, `total_attendees`*
+- **Expected columns:** *e.g. `event_id`, `event_name`, `total_attendees*`
 - **Notes:** *join path, GROUP BY, handling events with zero bookings*
 
 ### Query 2 — Revenue per organizer
 
-- **Expected columns:** *e.g. `organizer_id`, `organizer_name`, `total_revenue`*
+- **Expected columns:** *e.g. `organizer_id`, `organizer_name`, `total_revenue*`
 - **Notes:** *join path, filters on payment status*
 
 ### Query 3 — Average attendance rate (last 3 months)
@@ -157,46 +188,114 @@ Document intended result columns so implementation matches the report.
 
 ## 8. Table-level schema (authoritative list)
 
-*Adjust to match §5–6. Use SQL names (`snake_case` recommended).*
-
 ### organizers
 
-*TODO: columns, types, constraints, UNIQUE(email)?*
+
+| Column         | Type             | Constraints / notes       |
+| -------------- | ---------------- | ------------------------- |
+| organizer_id   | `SERIAL` / `INT` | PK                        |
+| organizer_name | `VARCHAR(200)`   | NOT NULL                  |
+| email          | `VARCHAR(255)`   | NOT NULL, UNIQUE          |
+| phone          | `VARCHAR(50)`    | NULL                      |
+| created_at     | `TIMESTAMP`      | NOT NULL, default `NOW()` |
+
 
 ### users
 
-*TODO*
+
+| Column     | Type             | Constraints / notes       |
+| ---------- | ---------------- | ------------------------- |
+| user_id    | `SERIAL` / `INT` | PK                        |
+| full_name  | `VARCHAR(200)`   | NOT NULL                  |
+| email      | `VARCHAR(255)`   | NOT NULL, UNIQUE          |
+| phone      | `VARCHAR(50)`    | NULL                      |
+| created_at | `TIMESTAMP`      | NOT NULL, default `NOW()` |
+
 
 ### venues
 
-*TODO*
+
+| Column     | Type             | Constraints / notes |
+| ---------- | ---------------- | ------------------- |
+| venue_id   | `SERIAL` / `INT` | PK                  |
+| venue_name | `VARCHAR(200)`   | NOT NULL            |
+| address    | `VARCHAR(300)`   | NOT NULL            |
+| city       | `VARCHAR(100)`   | NOT NULL            |
+| capacity   | `INT`            | NOT NULL, CHECK > 0 |
+
 
 ### events
 
-*TODO*
+
+| Column         | Type             | Constraints / notes                                                   |
+| -------------- | ---------------- | --------------------------------------------------------------------- |
+| event_id       | `SERIAL` / `INT` | PK                                                                    |
+| organizer_id   | `INT`            | NOT NULL, FK → organizers                                             |
+| venue_id       | `INT`            | NULL or NOT NULL — **decide in §5.3**                                 |
+| event_name     | `VARCHAR(200)`   | NOT NULL                                                              |
+| description    | `TEXT`           | NULL                                                                  |
+| category       | `VARCHAR(100)`   | NULL                                                                  |
+| start_datetime | `TIMESTAMP`      | NOT NULL                                                              |
+| end_datetime   | `TIMESTAMP`      | NOT NULL; DDL should enforce `end_datetime > start_datetime` (CHECK). |
+| status         | `VARCHAR(50)`    | NOT NULL — **enum list in §5.3**                                      |
+| created_at     | `TIMESTAMP`      | NOT NULL, default `NOW()`                                             |
+
 
 ### ticket_types
 
-*TODO*
+
+| Column             | Type             | Constraints / notes   |
+| ------------------ | ---------------- | --------------------- |
+| ticket_type_id     | `SERIAL` / `INT` | PK                    |
+| event_id           | `INT`            | NOT NULL, FK → events |
+| ticket_name        | `VARCHAR(120)`   | NOT NULL              |
+| price              | `NUMERIC(10,2)`  | NOT NULL, CHECK ≥ 0   |
+| quantity_available | `INT`            | NOT NULL, CHECK ≥ 0   |
+
 
 ### bookings
 
-*TODO*
+
+| Column         | Type             | Constraints / notes         |
+| -------------- | ---------------- | --------------------------- |
+| booking_id     | `SERIAL` / `INT` | PK                          |
+| user_id        | `INT`            | NOT NULL, FK → users        |
+| ticket_type_id | `INT`            | NOT NULL, FK → ticket_types |
+| quantity       | `INT`            | NOT NULL, CHECK ≥ 1         |
+| booking_date   | `TIMESTAMP`      | NOT NULL, default `NOW()`   |
+| booking_status | `VARCHAR(50)`    | NOT NULL — **enum in §5.3** |
+
 
 ### payments
 
-*TODO*
+
+| Column         | Type             | Constraints / notes             |
+| -------------- | ---------------- | ------------------------------- |
+| payment_id     | `SERIAL` / `INT` | PK                              |
+| booking_id     | `INT`            | NOT NULL, UNIQUE, FK → bookings |
+| amount         | `NUMERIC(10,2)`  | NOT NULL, CHECK ≥ 0             |
+| payment_method | `VARCHAR(50)`    | NOT NULL                        |
+| payment_status | `VARCHAR(50)`    | NOT NULL — **enum in §5.3**     |
+| payment_date   | `TIMESTAMP`      | NOT NULL                        |
+
 
 ### check_ins
 
-*TODO*
+
+| Column        | Type             | Constraints / notes                             |
+| ------------- | ---------------- | ----------------------------------------------- |
+| check_in_id   | `SERIAL` / `INT` | PK                                              |
+| booking_id    | `INT`            | NOT NULL, UNIQUE, FK → bookings                 |
+| check_in_time | `TIMESTAMP`      | NOT NULL                                        |
+| checked_in_by | `INT`            | NULL, FK → organizers *(who scanned/confirmed)* |
+
 
 ---
 
 ## 9. Constraints and integrity
 
 - **UNIQUE:** *e.g. user email, organizer email*
-- **CHECK:** *e.g. price ≥ 0, quantity ≥ 1*
+- **CHECK:** *e.g. price ≥ 0, quantity ≥ 1; `**events.end_datetime > events.start_datetime`***
 - **FK actions:** `ON DELETE RESTRICT` vs `CASCADE` — *decide per relationship*
 - **Timestamps:** timezone handling *(often “store UTC” or “naive local” for coursework — pick one and state it)*
 
@@ -225,32 +324,22 @@ Document intended result columns so implementation matches the report.
 ## 11. Indexes
 
 
-| Table        | Column(s)               | Rationale                                                   |
-| ------------ | ----------------------- | ----------------------------------------------------------- |
-| events       | organizer_id, venue_id  | FK + filter/join                                            |
-| ticket_types | event_id                | FK + join                                                   |
-| bookings     | user_id, ticket_type_id | FK + join                                                   |
-| payments     | booking_id              | FK + join                                                   |
-| check_ins    | booking_id              | FK + join                                                   |
-| *(add)*      |                         | *e.g. `events(start_datetime)` if you filter by date often* |
+| Table        | Column(s)                   | Rationale                                                                                                                                                               |
+| ------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| events       | `organizer_id`, `venue_id`  | FK lookups and joins.                                                                                                                                                   |
+| events       | `start_datetime`            | **Range filters** (“from–to”), sort by soonest event, “upcoming” lists. B-tree index matches typical `WHERE start_datetime >= ? AND start_datetime < ?`.                |
+| events       | `end_datetime`              | Add only if you often filter or sort by end time alone. Many browse queries are fine with `**start_datetime` only** plus the existing row’s `end_datetime` for display. |
+| ticket_types | `event_id`                  | FK + join.                                                                                                                                                              |
+| bookings     | `user_id`, `ticket_type_id` | FK + join.                                                                                                                                                              |
+| payments     | `booking_id`                | FK + join.                                                                                                                                                              |
+| check_ins    | `booking_id`                | FK + join.                                                                                                                                                              |
 
 
 ---
 
-## 12. Naming and file conventions *(optional but helps a team of 2)*
+## 12. Naming and file conventions
 
 - **Repo files:** *e.g. `schema/schema.sql`, `schema/schema.dbml`, `schema/erd.png`*
 - **Table names:** plural vs singular — *pick one*
 - **Primary keys:** `table_singular_id` vs `id` — *pick one*
-
----
-
-## 13. Sign-off
-
-
-| Name | Role | Date | Signature / “OK” |
-| ---- | ---- | ---- | ---------------- |
-|      |      |      |                  |
-|      |      |      |                  |
-
 
