@@ -1,11 +1,7 @@
-# Render Blueprint — one web service (API + built React) + managed Postgres.
+# Render Blueprint — web service only (use your existing Postgres).
+# Do NOT add a `databases:` block here if you already created Postgres on Render.
+# After deploy: set DATABASE_URL on the service to your existing DB connection string.
 # Docs: docs/DEPLOY.md
-
-databases:
-  - name: event-mgmt-db
-    databaseName: event_mgmt
-    user: event_mgmt
-    plan: free
 
 services:
   - type: web
@@ -25,9 +21,7 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.0"
       - key: DATABASE_URL
-        fromDatabase:
-          name: event-mgmt-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
