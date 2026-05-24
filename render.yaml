@@ -1,0 +1,34 @@
+# Render Blueprint — one web service (API + built React) + managed Postgres.
+# Docs: docs/DEPLOY.md
+
+databases:
+  - name: event-mgmt-db
+    databaseName: event_mgmt
+    user: event_mgmt
+    plan: free
+
+services:
+  - type: web
+    name: event-management
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      cd ../frontend &&
+      npm ci &&
+      npm run build &&
+      rm -rf ../backend/static &&
+      cp -r dist ../backend/static
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: event-mgmt-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false

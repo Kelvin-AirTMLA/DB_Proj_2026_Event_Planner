@@ -13,12 +13,12 @@ BEGIN;
 -- -----------------------------------------------------------------------------
 -- Organizers (5)
 -- -----------------------------------------------------------------------------
-INSERT INTO organizers (organizer_id, organizer_name, email, phone, created_at) VALUES
-(1, 'Northern Lights Events', 'hello@nlevents.eu', '+372 555 0101', '2025-06-01 10:00:00'),
-(2, 'Campus Workshop Lab', 'info@campuslab.eu', '+372 555 0202', '2025-07-15 11:00:00'),
-(3, 'Tartu Conference Group', 'book@tartucg.eu', '+372 555 0303', '2025-08-01 09:00:00'),
-(4, 'Baltic Meetups OÜ', 'crew@balticmeet.eu', '+372 555 0404', '2025-09-10 14:00:00'),
-(5, 'Student Events Union', 'seu@university.edu', NULL, '2025-10-01 12:00:00');
+INSERT INTO organizers (organizer_id, username, organizer_name, email, phone, created_at) VALUES
+(1, 'nle_events', 'Northern Lights Events', 'hello@nlevents.eu', '+372 555 0101', '2025-06-01 10:00:00'),
+(2, 'campus_lab', 'Campus Workshop Lab', 'info@campuslab.eu', '+372 555 0202', '2025-07-15 11:00:00'),
+(3, 'tartu_cg', 'Tartu Conference Group', 'book@tartucg.eu', '+372 555 0303', '2025-08-01 09:00:00'),
+(4, 'baltic_meet', 'Baltic Meetups OÜ', 'crew@balticmeet.eu', '+372 555 0404', '2025-09-10 14:00:00'),
+(5, 'seu_union', 'Student Events Union', 'seu@university.edu', NULL, '2025-10-01 12:00:00');
 
 -- -----------------------------------------------------------------------------
 -- Users (15) — username UNIQUE; duplicate emails allowed
@@ -227,5 +227,18 @@ SELECT setval(pg_get_serial_sequence('ticket_types', 'ticket_type_id'), (SELECT 
 SELECT setval(pg_get_serial_sequence('bookings',     'booking_id'),     (SELECT MAX(booking_id)     FROM bookings));
 SELECT setval(pg_get_serial_sequence('payments',     'payment_id'),     (SELECT MAX(payment_id)     FROM payments));
 SELECT setval(pg_get_serial_sequence('check_ins',    'check_in_id'),    (SELECT MAX(check_in_id)    FROM check_ins));
+
+-- -----------------------------------------------------------------------------
+-- Demo password login (MVP auth): user_id 1 only — password is "demo123"
+-- Email is shared with user_id 2 in seed; only user 1 has a hash so email login is unambiguous.
+-- -----------------------------------------------------------------------------
+UPDATE users
+SET password_hash = '$2b$12$kZNXRN1b7sgrOmwC7jvS1.hubwKRQzhrN2Y2TIGqtx8UqjX2t/YvW'
+WHERE user_id = 1;
+
+-- Organizer demo login: organizer_id 1 — email hello@nlevents.eu or username nle_events, password "demo123"
+UPDATE organizers
+SET password_hash = '$2b$12$kZNXRN1b7sgrOmwC7jvS1.hubwKRQzhrN2Y2TIGqtx8UqjX2t/YvW'
+WHERE organizer_id = 1;
 
 COMMIT;

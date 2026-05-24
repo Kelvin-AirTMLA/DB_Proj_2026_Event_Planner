@@ -14,6 +14,8 @@ venv/
 
 # Node (if you add React locally)
 node_modules/
+frontend/dist/
+backend/static/
 
 # Editor
 .idea/
