@@ -25,19 +25,22 @@
 
 CREATE TABLE organizers (
     organizer_id   SERIAL PRIMARY KEY,
+    username       VARCHAR(50)  NOT NULL UNIQUE,
     organizer_name VARCHAR(200) NOT NULL,
     email          VARCHAR(255) NOT NULL UNIQUE,
+    password_hash  VARCHAR(255),
     phone          VARCHAR(50),
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE users (
-    user_id    SERIAL PRIMARY KEY,
-    username   VARCHAR(50)  NOT NULL UNIQUE,
-    full_name  VARCHAR(200) NOT NULL,
-    email      VARCHAR(255) NOT NULL,
-    phone      VARCHAR(50),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    user_id       SERIAL PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL UNIQUE,
+    full_name     VARCHAR(200) NOT NULL,
+    email         VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),
+    phone         VARCHAR(50),
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE venues (

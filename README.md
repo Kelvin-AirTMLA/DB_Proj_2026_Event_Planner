@@ -204,9 +204,36 @@ Document these in the report as performance considerations.
 | Database | PostgreSQL |
 | ORM      | Optional (e.g. SQLAlchemy) |
 
-**Deployment options** (when ready): Supabase, Render, Heroku, PythonAnywhere, Netlify, Vercel, GitHub Pages  
+**Deploy:** step-by-step guide in [`docs/DEPLOY.md`](docs/DEPLOY.md) (Render + Postgres recommended). Repo includes [`render.yaml`](render.yaml) for a one-click blueprint.
 
-Complete the **minimum database requirements** first; deployment can follow.
+### Local MVP (FastAPI + React)
+
+Prerequisites: PostgreSQL with the `event_mgmt` database and `schema/01_ddl.sql` + `schema/02_seed.sql` applied (see [`schema/README.md`](schema/README.md)).
+
+**API (terminal 1):**
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env: DATABASE_URL if needed, and set JWT_SECRET to a long random string (required for signing login tokens).
+
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+**Web UI (terminal 2):**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. During development, Vite proxies `/api` to `http://127.0.0.1:8000`. The SPA uses client routes (for example `/login`, `/events`, `/events/9`, `/analytics`, `/check-in`); unknown paths under a logged-in session redirect to `/events`.
+
+The MVP covers **email or username + password** auth (register inserts into `users` with a bcrypt `password_hash`; JWT session), browsing events (optional start-time range), creating a booking as the signed-in user with an immediate **completed** payment (inventory decremented), overlap **warnings** (non-blocking, per spec), the three **analytics** endpoints aligned with `docs/specification.md` section 6, and **check-ins** for an event. After a fresh seed, you can log in with email `alex.m@student.edu` and password `demo123` (only `user_id` 1 receives a demo hash so email login stays unambiguous with shared seed emails).
 
 ---
 
