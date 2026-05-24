@@ -32,6 +32,27 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/ready")
+def ready() -> dict[str, str]:
+    """Checks DB connectivity (use after deploy; /api/health does not touch Postgres)."""
+    try:
+        with get_cursor() as cur:
+            cur.execute("SELECT to_regclass('public.users') AS users_table")
+            row = cur.fetchone()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Database unavailable ({type(exc).__name__}). "
+            "On Render: set DATABASE_URL on the web service and run scripts/bootstrap_remote_db.sh once.",
+        ) from exc
+    if not row or row.get("users_table") is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database connected but schema missing. Run scripts/bootstrap_remote_db.sh against your Render Postgres URL.",
+        )
+    return {"status": "ready", "database": "connected"}
+
+
 @app.get("/api/organizers")
 def list_organizers() -> list[dict[str, Any]]:
     with get_cursor() as cur:

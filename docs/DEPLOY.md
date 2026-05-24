@@ -137,6 +137,7 @@ Build frontend: `cd frontend && npm run build`, deploy `dist/`.
 | Problem | Fix |
 |---------|-----|
 | Build fails on `npm` | Ensure Render build includes `cd ../frontend`; Node is available on Python native runtime. |
+| **`POST /api/auth/register` → 500** but `/api/health` is OK | Web service has no working DB. Open `https://YOUR-APP.onrender.com/api/ready` after redeploy — it returns a clear 503 message. Set **`DATABASE_URL`** on the **web service** (Internal URL from your Render Postgres), then run `scripts/bootstrap_remote_db.sh` once with the **External** URL from your laptop. |
 | `relation does not exist` | Run `scripts/bootstrap_remote_db.sh` against hosted `DATABASE_URL`. |
 | 401 on all API calls | Check `JWT_SECRET` is set on the service (not the default dev value). |
 | Blank page, API works | Rebuild and ensure `backend/static/index.html` exists after build. |
