@@ -10,6 +10,7 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 
 First load on Render free tier may take ~30s while the service wakes up.
 
+**MVP overview:** [`docs/MVP.md`](docs/MVP.md) (screens, API, roles).  
 **Documentation first:** finalize the living spec ([`docs/specification.md`](docs/specification.md)) — especially definitions for the three analytics queries — before locking DBML, SQL DDL, and seed data.
 
 ## Git branches
@@ -20,7 +21,7 @@ First load on Render free tier may take ~30s while the service wakes up.
 | **`db_schema`** | `schema/`, `queries/`, `docs/`, `README.md`, `scripts/bootstrap_remote_db.sh` | See sync script below |
 | **`backend`** | `backend/`, `render.yaml`, `docs/`, `README.md` | See sync script below |
 | **`frontend`** | `frontend/`, `docs/`, `README.md` | See sync script below |
-| **`docs`** | Documentation-only branch (if used) | Optional; `docs/` is also on the slices above |
+| **`docs`** | `docs/` (incl. [`MVP.md`](docs/MVP.md)), `README.md` | Optional; sync with `./scripts/sync_branches_from_main.sh docs` |
 
 ### Avoid merge conflicts
 
@@ -244,6 +245,7 @@ The MVP covers **email or username + password** auth (register inserts into `use
 | Path | Purpose |
 |------|---------|
 | `docs/specification.md` | Authoritative business rules |
+| `docs/MVP.md` | MVP screens, API, roles, local run |
 | `schema/` | DDL, seed, DBML, ERD |
 | `queries/` | Three course SQL reports |
 | `backend/` | FastAPI API (+ `static/` after frontend build) |
