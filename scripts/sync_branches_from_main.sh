@@ -43,10 +43,10 @@ prune_junk() {
 
 sync_db_schema() {
   git checkout db_schema
-  git checkout main -- schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh
+  git checkout main -- schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh
   write_sync_marker .sync-from-main
   prune_junk
-  git add schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh .sync-from-main
+  git add schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh .sync-from-main
   if git diff --cached --quiet; then
     echo "db_schema: no file changes vs main."
   else
