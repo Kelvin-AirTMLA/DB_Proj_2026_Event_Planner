@@ -4,6 +4,18 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 
 **Documentation first:** finalize the living spec ([`docs/specification.md`](docs/specification.md)) — especially definitions for the three analytics queries — before locking DBML, SQL DDL, and seed data.
 
+## Git branches
+
+| Branch | Contents | Integration |
+|--------|----------|-------------|
+| **`main`** | Full project (schema, queries, backend, frontend, docs) | Deploy and demo from here |
+| **`db_schema`** | `schema/`, `queries/` only | Sync from main: `git checkout main -- schema/ queries/` |
+| **`backend`** | `backend/`, `render.yaml` | Sync from main: `git checkout main -- backend/ render.yaml` |
+| **`frontend`** | `frontend/` only | Sync from main: `git checkout main -- frontend/` |
+| **`docs`** | Documentation (if used) | Separate doc work |
+
+Feature branches should merge into **`main`** first; then copy the relevant folders into `db_schema`, `backend`, or `frontend` as needed.
+
 ## Course deliverables
 
 ### Minimum required
