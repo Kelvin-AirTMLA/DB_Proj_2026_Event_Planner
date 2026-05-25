@@ -2,6 +2,17 @@
 
 An Event Management App for the **Database Fundamentals** course. The emphasis is on database design, schema, queries, and light integration into a simple application, aligned with the course project brief.
 
+## Live demo (deployed MVP)
+
+**URL:** [https://event-management-lzcd.onrender.com/](https://event-management-lzcd.onrender.com/)
+
+| | |
+|---|---|
+| **Scan (QR)** | **Open in browser** |
+| ![Demo QR code](docs/demo-qr.png) | Guest: `alex.m@student.edu` / `demo123` · Organizer: `hello@nlevents.eu` or `nle_events` / `demo123` |
+
+First load on Render free tier may take ~30s while the service wakes up.
+
 **Documentation first:** finalize the living spec ([`docs/specification.md`](docs/specification.md)) — especially definitions for the three analytics queries — before locking DBML, SQL DDL, and seed data.
 
 ## Git branches
@@ -9,10 +20,10 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 | Branch | Contents | Integration |
 |--------|----------|-------------|
 | **`main`** | Full project (schema, queries, backend, frontend, docs) | Deploy and demo from here |
-| **`db_schema`** | `schema/`, `queries/` only | See sync script below |
-| **`backend`** | `backend/`, `render.yaml` | See sync script below |
-| **`frontend`** | `frontend/` only | See sync script below |
-| **`docs`** | Documentation (if used) | Separate doc work |
+| **`db_schema`** | `schema/`, `queries/`, `docs/`, `README.md`, `scripts/bootstrap_remote_db.sh` | See sync script below |
+| **`backend`** | `backend/`, `render.yaml`, `docs/`, `README.md` | See sync script below |
+| **`frontend`** | `frontend/`, `docs/`, `README.md` | See sync script below |
+| **`docs`** | Documentation-only branch (if used) | Optional; `docs/` is also on the slices above |
 
 ### Avoid merge conflicts
 
@@ -27,7 +38,7 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 ```bash
 chmod +x scripts/sync_branches_from_main.sh
 ./scripts/sync_branches_from_main.sh          # all three
-./scripts/sync_branches_from_main.sh db_schema  # one branch
+./scripts/sync_branches_from_main.sh db_schema  # one branch (includes docs/ + README)
 git push origin db_schema backend frontend
 ```
 

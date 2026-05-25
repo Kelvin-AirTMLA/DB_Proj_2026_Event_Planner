@@ -1,5 +1,7 @@
 # Deploying the Event Management MVP
 
+**Production demo:** [https://event-management-lzcd.onrender.com/](https://event-management-lzcd.onrender.com/) (QR in [README](../README.md#live-demo-deployed-mvp))
+
 Recommended for the course: **Render** (free tier) — one **PostgreSQL** database + one **Web Service** that runs the API and serves the built React app.
 
 ## Architecture (single service)
