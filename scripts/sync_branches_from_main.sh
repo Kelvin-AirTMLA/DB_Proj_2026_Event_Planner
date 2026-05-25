@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy latest slices from main into db_schema / backend / frontend branches.
+# Copy latest slices from main into db_schema / backend / frontend / docs branches.
 # Do NOT use "git merge main" on those branches — it causes modify/delete conflicts.
 #
 # Usage (from repo root, with a clean working tree on main):
@@ -85,22 +85,38 @@ sync_frontend() {
   fi
 }
 
+sync_docs() {
+  git checkout docs
+  git checkout main -- .gitignore docs/ README.md
+  write_sync_marker .sync-from-main
+  prune_junk
+  git add .gitignore docs/ README.md .sync-from-main
+  if git diff --cached --quiet; then
+    echo "docs: no file changes vs main."
+  else
+    git commit -m "Sync documentation from main ($(git rev-parse --short main))."
+    echo "docs: committed updates from main."
+  fi
+}
+
 TARGET="${1:-all}"
 
 case "$TARGET" in
   db_schema) sync_db_schema ;;
   backend) sync_backend ;;
   frontend) sync_frontend ;;
+  docs) sync_docs ;;
   all)
     sync_db_schema
     sync_backend
     sync_frontend
+    sync_docs
     ;;
   *)
-    echo "Unknown target: $TARGET (use db_schema, backend, frontend, or all)" >&2
+    echo "Unknown target: $TARGET (use db_schema, backend, frontend, docs, or all)" >&2
     exit 1
     ;;
 esac
 
 git checkout main
-echo "Done. On main. Push with: git push origin db_schema backend frontend"
+echo "Done. On main. Push with: git push origin db_schema backend frontend docs"
