@@ -15,48 +15,48 @@ First load on Render free tier may take ~30s while the service wakes up.
 
 ## Git branches
 
-| Branch | Contents | Integration |
-|--------|----------|-------------|
-| **`main`** | Full project (schema, queries, backend, frontend, docs) | Deploy and demo from here |
-| **`db_schema`** | `schema/`, `queries/`, `docs/`, `README.md`, `scripts/bootstrap_remote_db.sh` | See sync script below |
-| **`backend`** | `backend/`, `render.yaml`, `docs/`, `README.md` | See sync script below |
-| **`frontend`** | `frontend/`, `docs/`, `README.md` | See sync script below |
-| **`docs`** | `docs/` (incl. [`MVP.md`](docs/MVP.md)), `README.md` | Optional; sync with `./scripts/sync_branches_from_main.sh docs` |
+| Branch | You edit here | Lands on `main` via |
+|--------|---------------|---------------------|
+| **`main`** | Everything (deploy from here) | Direct commit or integrate scripts below |
+| **`db_schema`** | `schema/`, `queries/`, shared `docs/`, `README.md`, bootstrap scripts | `./scripts/integrate_slice_to_main.sh db_schema` |
+| **`backend`** | `backend/`, `render.yaml`, shared `docs/`, `README.md` | `./scripts/integrate_slice_to_main.sh backend` |
+| **`frontend`** | `frontend/`, shared `docs/`, `README.md` | `./scripts/integrate_slice_to_main.sh frontend` |
+| **`docs`** | `docs/`, `README.md` | `./scripts/integrate_slice_to_main.sh docs` |
 
-### Slice branches vs GitHub PRs (read this)
+Slice branches stay **organized and safe** — you only see the folders for your area. **`main`** stays the full app; integration copies **paths only** (not a GitHub merge of the whole slice branch).
 
-`db_schema`, `backend`, `frontend`, and `docs` are **partial trees** (folders removed on purpose). They are **mirrors for review**, not branches you merge into `main`.
+### Two scripts (not `git merge`)
 
-| Do | Do not |
-|----|--------|
-| Open PRs **into `main`** from normal feature branches (or commit straight to `main`) | Open PRs **`db_schema` → `main`** (or backend/frontend/docs → main) — GitHub will never auto-merge; it would delete the rest of the app |
-| Run `./scripts/sync_branches_from_main.sh` after `main` changes | `git merge main` on a slice branch (modify/delete conflicts) |
-| Push slices with `--force-with-lease` after sync (script rewrites slice history) | Expect “Update branch” / auto-merge on slice PRs to work |
+| Direction | Script |
+|-----------|--------|
+| **Slice → `main`** (your work on `docs`, etc.) | [`scripts/integrate_slice_to_main.sh`](scripts/integrate_slice_to_main.sh) |
+| **`main` → all slices** (after integrate, or after a direct `main` fix) | [`scripts/sync_branches_from_main.sh`](scripts/sync_branches_from_main.sh) |
 
-After sync, each slice is **0 commits behind `main`** and **1 commit ahead** (the slice-only deletion commit). Shared files (`docs/`, `README.md`, etc.) match `main` byte-for-byte.
+Do **not** use GitHub **Merge PR** from `docs` → `main` — the slice branch history includes a “remove other folders” commit and GitHub will conflict or damage `main`. Use the integrate script instead.
 
-**Workflow**
-
-1. Land work on **`main`** (PR or direct push).
-2. Sync slices:
+**Typical workflow (example: docs)**
 
 ```bash
-chmod +x scripts/sync_branches_from_main.sh
-./scripts/sync_branches_from_main.sh
+git checkout docs
+# edit docs/specification.md, commit, push
+git push origin docs
+
+git checkout main
+./scripts/integrate_slice_to_main.sh docs   # copies docs/ + README into main
+./scripts/sync_branches_from_main.sh        # updates db_schema, backend, frontend, docs from main
 git push origin main
 git push --force-with-lease origin db_schema backend frontend docs
 ```
 
-**Close** any open GitHub PRs from slice branches into `main`. Re-sync does not fix those PRs — close and use the workflow above.
+**If you changed `main` directly** (hotfix on full tree): skip integrate; run only `sync_branches_from_main.sh` and push.
 
 **If you are stuck mid-merge**
 
 ```bash
 git merge --abort
 git fetch origin
-git reset --hard origin/db_schema   # or backend / frontend / docs
+git reset --hard origin/docs   # or db_schema / backend / frontend
 git checkout main
-./scripts/sync_branches_from_main.sh
 ```
 
 ## Course deliverables
@@ -260,7 +260,7 @@ The MVP covers **email or username + password** auth (register inserts into `use
 | `queries/` | Three course SQL reports |
 | `backend/` | FastAPI API (+ `static/` after frontend build) |
 | `frontend/` | React MVP |
-| `scripts/` | Bootstrap, branch sync, presentation export, [`cleanup_repo.sh`](scripts/cleanup_repo.sh) |
+| `scripts/` | [`integrate_slice_to_main.sh`](scripts/integrate_slice_to_main.sh), [`sync_branches_from_main.sh`](scripts/sync_branches_from_main.sh), bootstrap, cleanup |
 | `docs/DEPLOY.md` | Render deployment |
 
 ---

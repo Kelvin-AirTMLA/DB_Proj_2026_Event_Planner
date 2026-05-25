@@ -36,27 +36,30 @@ If the change is cosmetic (typos, formatting) or purely internal refactors with 
 
 ## Git branches (slice workflow) — required for agents
 
-This repo uses **partial branches** (`db_schema`, `backend`, `frontend`, `docs`) that intentionally omit most of `main`. **`main`** is the full integration branch (deploy from here). Slice branches are **mirrors** synced from `main`; they are **not** merged back via GitHub PRs.
+Teammates **work on slice branches** (`db_schema`, `backend`, `frontend`, `docs`) to stay organized. **`main`** is the full integration branch (deploy from here). Changes on a slice must reach `main` via **`integrate_slice_to_main.sh`** (path copy), not `git merge` or a slice→`main` GitHub PR.
 
 ### Do not
 
-- **`git merge main`** (or GitHub “Update branch”) **on** slice branches — modify/delete conflicts.
-- **`git push origin main` alone** after shared changes — run the sync script and push slices too.
-- **Open or rely on PRs `db_schema` / `backend` / `frontend` / `docs` → `main`** — they cannot auto-merge (slice tip deletes folders that exist on `main`). Close those PRs; integrate on `main` only.
-- Push slice branches without **`--force-with-lease`** after `./scripts/sync_branches_from_main.sh` (the script resets slice history onto `main`).
+- **`git merge`** between `main` and slice branches (either direction) — use the two scripts below.
+- **Merge GitHub PRs** `db_schema` / `backend` / `frontend` / `docs` → `main` — use integrate script instead.
+- **`git push origin main` alone** after a slice was updated — integrate (if needed), then `sync_branches_from_main.sh`, then push all branches.
+- Push slice branches without **`--force-with-lease`** after sync (slice history is reset onto `main`).
 
 ### Do
 
-1. Land integration work on **`main`** (feature PRs target **`main`**, not a slice branch).
-2. From a **clean** `main` working tree:
-   ```bash
-   ./scripts/sync_branches_from_main.sh
-   git push origin main
-   git push --force-with-lease origin db_schema backend frontend docs
-   ```
-3. Tell the user to **close** stale slice→`main` PRs on GitHub if conflicts persist (sync does not repair PR metadata).
+**Work landed on a slice branch** (e.g. user edited `docs`):
 
-**Agent default:** do not `git push` unless the user asked. If pushing: sync slices first, then push `main` and all slice branches (`--force-with-lease` on slices).
+```bash
+git checkout main
+./scripts/integrate_slice_to_main.sh docs    # or db_schema, backend, frontend
+./scripts/sync_branches_from_main.sh
+git push origin main
+git push --force-with-lease origin db_schema backend frontend docs
+```
+
+**Work landed directly on `main`:** skip integrate; run only `sync_branches_from_main.sh` and push as above.
+
+**Agent default:** do not `git push` unless the user asked. If pushing after slice work: **integrate → sync → push `main` + all slices**.
 
 ## What to avoid
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Rebuild slice branches from main (reset + prune paths). Keeps slices 0 behind main.
-# Do NOT "git merge main" on slice branches — use this script instead.
+# Do NOT "git merge" between main and slices — use integrate_slice_to_main.sh (slice → main)
+# and this script (main → all slices).
 #
-# Slice branches are mirrors for grading/review. They must NOT use GitHub PRs into main
-# (merging a slice PR would delete backend/frontend/schema from main).
+# Typical loop: work on docs → integrate_slice_to_main.sh docs → this script → push.
 #
 # Usage (from repo root, clean working tree on main):
 #   ./scripts/sync_branches_from_main.sh

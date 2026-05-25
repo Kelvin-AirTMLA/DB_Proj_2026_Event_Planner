@@ -112,4 +112,6 @@ Chat, recommendations, maps, multi-currency, refunds, real payment providers, or
 | [`DEFENSE_PRESENTATION.md`](DEFENSE_PRESENTATION.md) | Oral defense slides (Marp) |
 | [`BLUEPRINT_AND_TEAMMATE_GUIDE.md`](BLUEPRINT_AND_TEAMMATE_GUIDE.md) | Blueprint alignment + teammate LLM prompts |
 
-Implementation code lives on **`main`** (`backend/`, `frontend/`). This **`docs`** branch carries documentation only.
+**Branch workflow:** edit on the **`docs`** slice branch, then run `scripts/integrate_slice_to_main.sh docs` from **`main`**, then `scripts/sync_branches_from_main.sh` so every branch stays aligned. Do not merge the `docs` PR into `main` on GitHub — use the integrate script.
+
+Implementation code lives on **`main`** (`backend/`, `frontend/`).
