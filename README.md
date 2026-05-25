@@ -6,7 +6,9 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 
 **URL:** [https://db-proj-2026-event-planner.onrender.com/](https://db-proj-2026-event-planner.onrender.com/)
 
-![Demo QR code](docs/demo-qr.png)
+![Demo QR code — scan to open the live app](docs/demo-qr.png)
+
+*QR encodes:* `https://db-proj-2026-event-planner.onrender.com/`
 
 First load on Render free tier may take ~30s while the service wakes up.
 
