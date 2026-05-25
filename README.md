@@ -23,30 +23,40 @@ First load on Render free tier may take ~30s while the service wakes up.
 | **`frontend`** | `frontend/`, `docs/`, `README.md` | See sync script below |
 | **`docs`** | `docs/` (incl. [`MVP.md`](docs/MVP.md)), `README.md` | Optional; sync with `./scripts/sync_branches_from_main.sh docs` |
 
-### Avoid merge conflicts
+### Slice branches vs GitHub PRs (read this)
 
-`db_schema`, `backend`, and `frontend` are **partial trees** (most root files were removed on purpose).  
-**Do not run `git merge main`** on those branches — Git will report modify/delete conflicts on `README.md`, `.gitignore`, `docs/`, etc.
+`db_schema`, `backend`, `frontend`, and `docs` are **partial trees** (folders removed on purpose). They are **mirrors for review**, not branches you merge into `main`.
 
-**Correct workflow**
+| Do | Do not |
+|----|--------|
+| Open PRs **into `main`** from normal feature branches (or commit straight to `main`) | Open PRs **`db_schema` → `main`** (or backend/frontend/docs → main) — GitHub will never auto-merge; it would delete the rest of the app |
+| Run `./scripts/sync_branches_from_main.sh` after `main` changes | `git merge main` on a slice branch (modify/delete conflicts) |
+| Push slices with `--force-with-lease` after sync (script rewrites slice history) | Expect “Update branch” / auto-merge on slice PRs to work |
 
-1. Merge feature work into **`main`** (normal PRs).
-2. Sync slices from `main` without merging:
+After sync, each slice is **0 commits behind `main`** and **1 commit ahead** (the slice-only deletion commit). Shared files (`docs/`, `README.md`, etc.) match `main` byte-for-byte.
+
+**Workflow**
+
+1. Land work on **`main`** (PR or direct push).
+2. Sync slices:
 
 ```bash
 chmod +x scripts/sync_branches_from_main.sh
-./scripts/sync_branches_from_main.sh          # all three
-./scripts/sync_branches_from_main.sh db_schema  # one branch (includes docs/ + README)
-git push origin db_schema backend frontend
+./scripts/sync_branches_from_main.sh
+git push origin main
+git push --force-with-lease origin db_schema backend frontend docs
 ```
+
+**Close** any open GitHub PRs from slice branches into `main`. Re-sync does not fix those PRs — close and use the workflow above.
 
 **If you are stuck mid-merge**
 
 ```bash
-git merge --abort                    # if merge is in progress
-# or
-git reset --hard origin/db_schema    # replace branchname as needed
+git merge --abort
+git fetch origin
+git reset --hard origin/db_schema   # or backend / frontend / docs
 git checkout main
+./scripts/sync_branches_from_main.sh
 ```
 
 ## Course deliverables

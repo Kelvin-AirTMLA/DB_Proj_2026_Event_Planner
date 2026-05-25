@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Copy latest slices from main into db_schema / backend / frontend / docs branches.
-# Do NOT use "git merge main" on those branches — it causes modify/delete conflicts.
+# Rebuild slice branches from main (reset + prune paths). Keeps slices 0 behind main.
+# Do NOT "git merge main" on slice branches — use this script instead.
 #
-# Usage (from repo root, with a clean working tree on main):
+# Slice branches are mirrors for grading/review. They must NOT use GitHub PRs into main
+# (merging a slice PR would delete backend/frontend/schema from main).
+#
+# Usage (from repo root, clean working tree on main):
 #   ./scripts/sync_branches_from_main.sh
-#   ./scripts/sync_branches_from_main.sh db_schema   # one branch only
+#   ./scripts/sync_branches_from_main.sh db_schema
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,13 +24,13 @@ if [[ "$(git branch --show-current)" != "main" ]]; then
   exit 1
 fi
 
+MAIN_SHA="$(git rev-parse --short main)"
+
 write_sync_marker() {
   local path="$1"
-  local main_sha
-  main_sha="$(git rev-parse --short main)"
   printf '%s\n' \
     "# Updated by scripts/sync_branches_from_main.sh — do not edit by hand." \
-    "main_commit=${main_sha}" \
+    "main_commit=${MAIN_SHA}" \
     "synced_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     >"$path"
 }
@@ -41,62 +44,66 @@ prune_junk() {
     ! -path './frontend/node_modules/*' -delete 2>/dev/null || true
 }
 
+# Remove tracked paths if present (after reset --hard main).
+git_rm_if_present() {
+  for path in "$@"; do
+    if git ls-files --error-unmatch "$path" &>/dev/null; then
+      git rm -rf "$path"
+    elif [[ -e "$path" ]]; then
+      rm -rf "$path"
+      git add -A
+    fi
+  done
+}
+
+commit_slice() {
+  local label="$1"
+  write_sync_marker "$2"
+  git add -A
+  if git diff --cached --quiet; then
+    echo "${label}: tree already matches slice (no new commit)."
+  else
+    git commit -m "Slice ${label} synced from main (${MAIN_SHA})."
+    echo "${label}: committed slice on top of main."
+  fi
+}
+
 sync_db_schema() {
   git checkout db_schema
-  git checkout main -- .gitignore schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh
-  write_sync_marker .sync-from-main
+  git reset --hard main
   prune_junk
-  git add .gitignore schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh .sync-from-main
-  if git diff --cached --quiet; then
-    echo "db_schema: no file changes vs main."
-  else
-    git commit -m "Sync schema, queries, and docs from main ($(git rev-parse --short main))."
-    echo "db_schema: committed updates from main."
-  fi
+  git_rm_if_present \
+    AGENTS.md backend frontend render.yaml \
+    scripts/sync_branches_from_main.sh scripts/export_presentation.sh
+  commit_slice db_schema .sync-from-main
 }
 
 sync_backend() {
   git checkout backend
-  git checkout main -- .gitignore backend/ render.yaml docs/ README.md
-  write_sync_marker backend/.sync-from-main
+  git reset --hard main
   prune_junk
-  git rm -r --cached backend/app/__pycache__ backend/.DS_Store 2>/dev/null || true
-  git add .gitignore backend/ render.yaml docs/ README.md backend/.sync-from-main
-  if git diff --cached --quiet; then
-    echo "backend: no file changes vs main."
-  else
-    git commit -m "Sync backend, render.yaml, and docs from main ($(git rev-parse --short main))."
-    echo "backend: committed updates from main."
-  fi
+  git_rm_if_present \
+    AGENTS.md frontend schema queries scripts render.yaml
+  commit_slice backend backend/.sync-from-main
 }
 
 sync_frontend() {
   git checkout frontend
-  git checkout main -- .gitignore frontend/ docs/ README.md
-  write_sync_marker frontend/.sync-from-main
+  git reset --hard main
   prune_junk
   git rm -r --cached frontend/node_modules 2>/dev/null || true
-  git add .gitignore frontend/ docs/ README.md frontend/.sync-from-main
-  if git diff --cached --quiet; then
-    echo "frontend: no file changes vs main."
-  else
-    git commit -m "Sync frontend and docs from main ($(git rev-parse --short main))."
-    echo "frontend: committed updates from main."
-  fi
+  git_rm_if_present \
+    AGENTS.md backend schema queries scripts render.yaml
+  commit_slice frontend frontend/.sync-from-main
 }
 
 sync_docs() {
   git checkout docs
-  git checkout main -- .gitignore docs/ README.md
-  write_sync_marker .sync-from-main
+  git reset --hard main
   prune_junk
-  git add .gitignore docs/ README.md .sync-from-main
-  if git diff --cached --quiet; then
-    echo "docs: no file changes vs main."
-  else
-    git commit -m "Sync documentation from main ($(git rev-parse --short main))."
-    echo "docs: committed updates from main."
-  fi
+  git_rm_if_present \
+    AGENTS.md backend frontend schema queries scripts render.yaml
+  commit_slice docs .sync-from-main
 }
 
 TARGET="${1:-all}"
@@ -119,4 +126,8 @@ case "$TARGET" in
 esac
 
 git checkout main
-echo "Done. On main. Push with: git push origin db_schema backend frontend docs"
+echo ""
+echo "Done. Slice branches are 0 commits behind main (1 slice commit ahead)."
+echo "Push (slice branches need --force-with-lease after history rewrite):"
+echo "  git push origin main"
+echo "  git push --force-with-lease origin db_schema backend frontend docs"
