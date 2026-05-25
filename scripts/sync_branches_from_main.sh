@@ -34,39 +34,39 @@ write_sync_marker() {
 
 sync_db_schema() {
   git checkout db_schema
-  git checkout main -- schema/ queries/
+  git checkout main -- schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh
   write_sync_marker .sync-from-main
-  git add schema/ queries/ .sync-from-main
+  git add schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh .sync-from-main
   if git diff --cached --quiet; then
-    echo "db_schema: no file changes vs main (schema + queries)."
+    echo "db_schema: no file changes vs main."
   else
-    git commit -m "Sync schema and queries from main ($(git rev-parse --short main))."
+    git commit -m "Sync schema, queries, and docs from main ($(git rev-parse --short main))."
     echo "db_schema: committed updates from main."
   fi
 }
 
 sync_backend() {
   git checkout backend
-  git checkout main -- backend/ render.yaml
+  git checkout main -- backend/ render.yaml docs/ README.md
   write_sync_marker backend/.sync-from-main
-  git add backend/ render.yaml
+  git add backend/ render.yaml docs/ README.md
   if git diff --cached --quiet; then
     echo "backend: no file changes vs main."
   else
-    git commit -m "Sync backend and render.yaml from main ($(git rev-parse --short main))."
+    git commit -m "Sync backend, render.yaml, and docs from main ($(git rev-parse --short main))."
     echo "backend: committed updates from main."
   fi
 }
 
 sync_frontend() {
   git checkout frontend
-  git checkout main -- frontend/
+  git checkout main -- frontend/ docs/ README.md
   write_sync_marker frontend/.sync-from-main
-  git add frontend/
+  git add frontend/ docs/ README.md
   if git diff --cached --quiet; then
     echo "frontend: no file changes vs main."
   else
-    git commit -m "Sync frontend from main ($(git rev-parse --short main))."
+    git commit -m "Sync frontend and docs from main ($(git rev-parse --short main))."
     echo "frontend: committed updates from main."
   fi
 }
