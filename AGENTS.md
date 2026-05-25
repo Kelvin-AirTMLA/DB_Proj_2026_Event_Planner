@@ -36,32 +36,27 @@ If the change is cosmetic (typos, formatting) or purely internal refactors with 
 
 ## Git branches (slice workflow) — required for agents
 
-This repo uses **partial branches** (`db_schema`, `backend`, `frontend`, `docs`) that intentionally omit most of `main`. **`main`** is the full integration branch (deploy from here).
+This repo uses **partial branches** (`db_schema`, `backend`, `frontend`, `docs`) that intentionally omit most of `main`. **`main`** is the full integration branch (deploy from here). Slice branches are **mirrors** synced from `main`; they are **not** merged back via GitHub PRs.
 
 ### Do not
 
-- **`git merge main`** (or merge `main` via GitHub UI) **into** `db_schema`, `backend`, `frontend`, or `docs` — that causes modify/delete conflicts on `README.md`, `.gitignore`, and folders removed on slice branches.
-- **`git push origin main` alone** after doc/code changes — slice branches on GitHub will drift and teammates get conflicts on the next merge attempt.
-- Push only one slice branch while leaving `main` and the other slices stale, unless the user explicitly asked for a single-branch push.
+- **`git merge main`** (or GitHub “Update branch”) **on** slice branches — modify/delete conflicts.
+- **`git push origin main` alone** after shared changes — run the sync script and push slices too.
+- **Open or rely on PRs `db_schema` / `backend` / `frontend` / `docs` → `main`** — they cannot auto-merge (slice tip deletes folders that exist on `main`). Close those PRs; integrate on `main` only.
+- Push slice branches without **`--force-with-lease`** after `./scripts/sync_branches_from_main.sh` (the script resets slice history onto `main`).
 
 ### Do
 
-1. Land integration work on **`main`** (commit locally or on `main`).
-2. From a **clean** `main` working tree, run:
+1. Land integration work on **`main`** (feature PRs target **`main`**, not a slice branch).
+2. From a **clean** `main` working tree:
    ```bash
    ./scripts/sync_branches_from_main.sh
+   git push origin main
+   git push --force-with-lease origin db_schema backend frontend docs
    ```
-   (copies paths from `main` with `git checkout main -- …`; does **not** merge).
-3. Push **all** updated branches together:
-   ```bash
-   git push origin main db_schema backend frontend docs
-   ```
+3. Tell the user to **close** stale slice→`main` PRs on GitHub if conflicts persist (sync does not repair PR metadata).
 
-One-off sync: `./scripts/sync_branches_from_main.sh db_schema` (or `backend`, `frontend`, `docs`).
-
-If a merge is already in progress on a slice branch: `git merge --abort`, then sync from `main` as above (or `git reset --hard origin/<branch>` and re-run the sync script).
-
-**Agent default:** do not `git push` unless the user asked. If the user asked to push, sync slice branches from `main` first, then push `main` and every slice branch that changed in the same session.
+**Agent default:** do not `git push` unless the user asked. If pushing: sync slices first, then push `main` and all slice branches (`--force-with-lease` on slices).
 
 ## What to avoid
 
