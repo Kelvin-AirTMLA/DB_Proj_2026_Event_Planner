@@ -78,7 +78,7 @@ Public: `GET /api/organizers` (list for reference).
 
 ## Business rules enforced in the MVP
 
-- **EUR** amounts; **one payment row per booking** (`payments.booking_id` UNIQUE).
+- **EUR** amounts; **one payment row per booking** (payment PK = booking composite key: `user_id`, `ticket_type_id`, `booking_date`).
 - Booking creates **immediate** `payment_status = 'completed'` (demo checkout — not a real payment gateway).
 - **Revenue / attendee analytics** use **`payment_status = 'completed'`** only (spec §6).
 - **No refunds** — no cancel button in UI; sales are final (spec §3.4).
@@ -109,8 +109,7 @@ Chat, recommendations, maps, multi-currency, refunds, real payment providers, or
 |------|---------|
 | [`specification.md`](specification.md) | Authoritative rules and schema |
 | [`DEPLOY.md`](DEPLOY.md) | Render + Postgres |
-| [`DEFENSE_PRESENTATION.md`](DEFENSE_PRESENTATION.md) | Oral defense slides (Marp) |
-| [`BLUEPRINT_AND_TEAMMATE_GUIDE.md`](BLUEPRINT_AND_TEAMMATE_GUIDE.md) | Blueprint alignment + teammate LLM prompts |
+| [`DEFENSE_PRESENTATION.md`](DEFENSE_PRESENTATION.md) | Oral defense slides (Marp source) |
 
 **Branch workflow:** edit on the **`docs`** slice branch, then run `scripts/integrate_slice_to_main.sh docs` from **`main`**, then `scripts/sync_branches_from_main.sh` so every branch stays aligned. Do not merge the `docs` PR into `main` on GitHub — use the integrate script.
 

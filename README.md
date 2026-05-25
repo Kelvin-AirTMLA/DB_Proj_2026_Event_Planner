@@ -163,7 +163,7 @@ Single source of detail: [`docs/specification.md`](docs/specification.md) (§5.3
 
 | Topic | Decision |
 |--------|-----------|
-| **Payments** | **One payment row per booking** (`booking_id` unique). |
+| **Payments** | **One payment row per booking** (composite PK matches booking: user + ticket type + booking time). |
 | **Venue** | Every event has a venue — **`events.venue_id` NOT NULL**. |
 | **Event status** | `pending`, `ongoing`, `done`. |
 | **Booking status** | `pending`, `confirmed`, `cancelled`. |

@@ -72,8 +72,8 @@ Repo: `DB_Proj_2026_Event_Planner` · Demo: `https://event-management-lzcd.onren
 
 **Transactions**
 - `bookings` — `user_id` + `ticket_type_id` + `quantity`
-- `payments` — **1:1** with booking (`booking_id` UNIQUE)
-- `check_ins` — **0..1** per booking (`booking_id` UNIQUE)
+- `payments` — **1:1** with booking (composite PK = `user_id`, `ticket_type_id`, `booking_date`)
+- `check_ins` — **0..1** per booking (same composite PK as booking)
 
 ![width:480px](../schema/ERD.png)
 
@@ -163,4 +163,3 @@ attendance_rate_percent =
 
 > Relational design turns event activity into reliable operational and analytical data.
 
-<!-- Speaker notes: see docs/DEFENSE_PRESENTATION_NOTES.md -->

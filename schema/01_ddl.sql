@@ -92,13 +92,15 @@ CREATE TABLE ticket_types (
         ON DELETE CASCADE
 );
 
+-- Natural (composite) PK on bookings: who bought which ticket tier and when.
+-- Surrogate booking_id removed — one row is identified by (user, ticket_type, booking_date).
 CREATE TABLE bookings (
-    booking_id     SERIAL PRIMARY KEY,
     user_id        INTEGER NOT NULL,
     ticket_type_id INTEGER NOT NULL,
-    quantity       INTEGER NOT NULL,
     booking_date   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    quantity       INTEGER NOT NULL,
     booking_status VARCHAR(50) NOT NULL,
+    PRIMARY KEY (user_id, ticket_type_id, booking_date),
     CONSTRAINT chk_bookings_quantity_positive CHECK (quantity >= 1),
     CONSTRAINT chk_bookings_status_allowed CHECK (
         booking_status IN ('pending', 'confirmed', 'cancelled')
@@ -111,29 +113,37 @@ CREATE TABLE bookings (
         ON DELETE CASCADE
 );
 
+-- 1:1 with booking — same composite key (natural FK, not a separate surrogate).
 CREATE TABLE payments (
-    payment_id     SERIAL PRIMARY KEY,
-    booking_id     INTEGER NOT NULL UNIQUE,
-    amount         NUMERIC(10, 2) NOT NULL,
-    payment_method VARCHAR(50) NOT NULL,
-    payment_status VARCHAR(50) NOT NULL,
-    payment_date   TIMESTAMP NOT NULL,
+    user_id          INTEGER NOT NULL,
+    ticket_type_id   INTEGER NOT NULL,
+    booking_date     TIMESTAMP NOT NULL,
+    amount           NUMERIC(10, 2) NOT NULL,
+    payment_method   VARCHAR(50) NOT NULL,
+    payment_status   VARCHAR(50) NOT NULL,
+    payment_date     TIMESTAMP NOT NULL,
+    PRIMARY KEY (user_id, ticket_type_id, booking_date),
     CONSTRAINT chk_payments_amount_non_negative CHECK (amount >= 0),
     CONSTRAINT chk_payments_status_allowed CHECK (
         payment_status IN ('pending', 'completed', 'failed')
     ),
     CONSTRAINT fk_payments_booking
-        FOREIGN KEY (booking_id) REFERENCES bookings (booking_id)
+        FOREIGN KEY (user_id, ticket_type_id, booking_date)
+        REFERENCES bookings (user_id, ticket_type_id, booking_date)
         ON DELETE CASCADE
 );
 
+-- 0..1 per booking — PK matches the booking composite key.
 CREATE TABLE check_ins (
-    check_in_id   SERIAL PRIMARY KEY,
-    booking_id    INTEGER NOT NULL UNIQUE,
-    check_in_time TIMESTAMP NOT NULL,
-    checked_in_by INTEGER,
+    user_id        INTEGER NOT NULL,
+    ticket_type_id INTEGER NOT NULL,
+    booking_date   TIMESTAMP NOT NULL,
+    check_in_time  TIMESTAMP NOT NULL,
+    checked_in_by  INTEGER,
+    PRIMARY KEY (user_id, ticket_type_id, booking_date),
     CONSTRAINT fk_check_ins_booking
-        FOREIGN KEY (booking_id) REFERENCES bookings (booking_id)
+        FOREIGN KEY (user_id, ticket_type_id, booking_date)
+        REFERENCES bookings (user_id, ticket_type_id, booking_date)
         ON DELETE CASCADE,
     CONSTRAINT fk_check_ins_checked_in_by
         FOREIGN KEY (checked_in_by) REFERENCES organizers (organizer_id)
@@ -154,4 +164,4 @@ CREATE INDEX idx_ticket_types_event_id ON ticket_types (event_id);
 CREATE INDEX idx_bookings_user_id ON bookings (user_id);
 CREATE INDEX idx_bookings_ticket_type_id ON bookings (ticket_type_id);
 
--- payments(booking_id), check_ins(booking_id) covered by UNIQUE constraints
+-- payments / check_ins use the booking composite PK (no extra surrogate ids)
