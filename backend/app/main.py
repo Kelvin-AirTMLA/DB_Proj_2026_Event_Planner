@@ -250,6 +250,36 @@ def create_event(
     }
 
 
+def _fetch_active_booking_for_event(
+    cur: Any, user_id: int, event_id: int
+) -> dict[str, Any] | None:
+    """Non-cancelled booking for this user on any ticket tier of the event."""
+    cur.execute(
+        """
+        SELECT
+            b.quantity,
+            b.booking_date,
+            b.booking_status,
+            tt.ticket_name,
+            p.payment_status
+        FROM bookings b
+        JOIN ticket_types tt ON tt.ticket_type_id = b.ticket_type_id
+        LEFT JOIN payments p
+          ON p.user_id = b.user_id
+         AND p.ticket_type_id = b.ticket_type_id
+         AND p.booking_date = b.booking_date
+        WHERE b.user_id = %s
+          AND tt.event_id = %s
+          AND b.booking_status <> 'cancelled'
+        ORDER BY b.booking_date DESC
+        LIMIT 1
+        """,
+        (user_id, event_id),
+    )
+    row = cur.fetchone()
+    return dict(row) if row else None
+
+
 @app.get("/api/bookings/overlap-warning")
 def overlap_warning(
     event_id: int,
@@ -265,6 +295,7 @@ def overlap_warning(
         target = cur.fetchone()
         if not target:
             raise HTTPException(status_code=404, detail="Event not found")
+        existing = _fetch_active_booking_for_event(cur, user_id, event_id)
         new_start = target["start_datetime"]
         new_end = target["end_datetime"]
         cur.execute(
@@ -291,6 +322,8 @@ def overlap_warning(
     return {
         "has_overlap": len(conflicts) > 0,
         "conflicts": [serialize_row(dict(c)) for c in conflicts],
+        "already_booked_this_event": existing is not None,
+        "existing_booking": serialize_row(existing) if existing else None,
     }
 
 
@@ -318,6 +351,11 @@ def create_booking(
         tt = cur.fetchone()
         if not tt:
             raise HTTPException(status_code=404, detail="Ticket type not found")
+        if _fetch_active_booking_for_event(cur, user_id, int(tt["event_id"])):
+            raise HTTPException(
+                status_code=409,
+                detail="You already have a booking for this event",
+            )
         if tt["quantity_available"] < body.quantity:
             raise HTTPException(status_code=400, detail="Not enough tickets available")
 

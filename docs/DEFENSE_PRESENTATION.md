@@ -14,7 +14,7 @@ description: Database Fundamentals — 7-minute defense deck
 
 Saif Aghezzaf & Kelvin-Air · May 2026
 
-Repo: `DB_Proj_2026_Event_Planner` · Demo: `https://event-management-lzcd.onrender.com`
+Repo: `DB_Proj_2026_Event_Planner` · Demo: `https://db-proj-2026-event-planner.onrender.com`
 
 ---
 

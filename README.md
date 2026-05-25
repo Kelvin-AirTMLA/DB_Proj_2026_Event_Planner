@@ -4,7 +4,7 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 
 ## Live demo (deployed MVP)
 
-**URL:** [https://event-management-lzcd.onrender.com/](https://event-management-lzcd.onrender.com/)
+**URL:** [https://db-proj-2026-event-planner.onrender.com/](https://db-proj-2026-event-planner.onrender.com/)
 
 ![Demo QR code](docs/demo-qr.png)
 

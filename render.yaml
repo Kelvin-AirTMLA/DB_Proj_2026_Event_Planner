@@ -5,7 +5,7 @@
 
 services:
   - type: web
-    name: event-management
+    name: db-proj-2026-event-planner
     runtime: python
     plan: free
     rootDir: backend

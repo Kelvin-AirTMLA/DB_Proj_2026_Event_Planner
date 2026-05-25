@@ -61,9 +61,19 @@ type EventDetail = {
   ticket_types: TicketType[];
 };
 
-type OverlapResponse = {
+type ExistingEventBooking = {
+  ticket_name: string;
+  quantity: number;
+  booking_date: string;
+  booking_status: string;
+  payment_status: string | null;
+};
+
+type BookingPrecheckResponse = {
   has_overlap: boolean;
   conflicts: { event_id: number; event_name: string; start_datetime: string; end_datetime: string }[];
+  already_booked_this_event: boolean;
+  existing_booking: ExistingEventBooking | null;
 };
 
 type BookingKey = {
@@ -76,6 +86,17 @@ function bookingRowKey(b: BookingKey) {
   return `${b.user_id}-${b.ticket_type_id}-${b.booking_date}`;
 }
 
+function formatDt(iso: string) {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 type BookingRow = BookingKey & {
   username: string;
   full_name: string;
@@ -86,6 +107,66 @@ type BookingRow = BookingKey & {
   checked_in: boolean;
   check_in_time: string | null;
 };
+
+function AlreadyBookedModal({
+  open,
+  onClose,
+  eventName,
+  booking,
+}: {
+  open: boolean;
+  onClose: () => void;
+  eventName: string;
+  booking: ExistingEventBooking | null;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div className="modal-overlay" role="presentation" onClick={onClose}>
+      <div
+        className="modal-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="already-booked-title"
+        aria-describedby="already-booked-desc"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="already-booked-title">Already booked</h3>
+        <p id="already-booked-desc">
+          You already have a booking for <strong>{eventName}</strong>. This MVP allows only one
+          booking per guest per event.
+        </p>
+        {booking && (
+          <p className="muted" style={{ marginBottom: 0 }}>
+            {booking.ticket_name} · qty {booking.quantity} · booked {formatDt(booking.booking_date)} ·{" "}
+            {booking.booking_status}
+            {booking.payment_status ? ` · payment ${booking.payment_status}` : ""}
+          </p>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="primary" onClick={onClose}>
+            OK
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 function RefundWarningModal({
   open,
@@ -144,17 +225,6 @@ function RefundWarningModal({
   );
 }
 
-function formatDt(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: () => void }) {
   const isGuest = session.role === "guest";
   const isOrganizer = session.role === "organizer";
@@ -193,7 +263,8 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
 
   const [ticketTypeId, setTicketTypeId] = useState<number | "">("");
   const [quantityText, setQuantityText] = useState("1");
-  const [overlap, setOverlap] = useState<OverlapResponse | null>(null);
+  const [bookingPrecheck, setBookingPrecheck] = useState<BookingPrecheckResponse | null>(null);
+  const [alreadyBookedModalOpen, setAlreadyBookedModalOpen] = useState(false);
   /** Newest first; each booking adds a line so earlier confirmations are not replaced. */
   const [bookingSuccessLines, setBookingSuccessLines] = useState<string[]>([]);
   const [bookError, setBookError] = useState<string | null>(null);
@@ -279,7 +350,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
     let cancelled = false;
     setDetail(null);
     setDetailError(null);
-    setOverlap(null);
+    setBookingPrecheck(null);
     setBookError(null);
     setTicketTypeId("");
     void (async () => {
@@ -297,29 +368,31 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
     };
   }, [tab, urlEventId]);
 
+  const loadBookingPrecheck = useCallback(async (eventId: number) => {
+    try {
+      const o = await apiGet<BookingPrecheckResponse>(`/api/bookings/overlap-warning?event_id=${eventId}`);
+      setBookingPrecheck(o);
+    } catch {
+      setBookingPrecheck(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (tab !== "detail" || !urlEventId || !isGuest) {
-      setOverlap(null);
+      setBookingPrecheck(null);
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const o = await apiGet<OverlapResponse>(`/api/bookings/overlap-warning?event_id=${urlEventId}`);
-        if (!cancelled) setOverlap(o);
-      } catch {
-        if (!cancelled) setOverlap(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, urlEventId, isGuest]);
+    void loadBookingPrecheck(urlEventId);
+  }, [tab, urlEventId, isGuest, loadBookingPrecheck]);
 
   const requestBooking = () => {
     setBookError(null);
     if (ticketTypeId === "") {
       setBookError("Choose a ticket type.");
+      return;
+    }
+    if (bookingPrecheck?.already_booked_this_event) {
+      setAlreadyBookedModalOpen(true);
       return;
     }
     setRefundWarningOpen(true);
@@ -370,8 +443,15 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
         }
       }
       void loadEvents();
+      if (urlEventId) void loadBookingPrecheck(urlEventId);
     } catch (e) {
-      setBookError(e instanceof Error ? e.message : "Booking failed");
+      const msg = e instanceof Error ? e.message : "Booking failed";
+      if (msg.toLowerCase().includes("already have a booking")) {
+        setAlreadyBookedModalOpen(true);
+        if (urlEventId) void loadBookingPrecheck(urlEventId);
+      } else {
+        setBookError(msg);
+      }
     }
   };
 
@@ -714,11 +794,24 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                   />
                 </label>
               </div>
-              {overlap?.has_overlap && (
+              {bookingPrecheck?.already_booked_this_event && (
+                <div className="warn-banner">
+                  <strong>You already booked this event.</strong> One booking per guest per event in this MVP.
+                  {bookingPrecheck.existing_booking && (
+                    <>
+                      {" "}
+                      ({bookingPrecheck.existing_booking.ticket_name}, qty{" "}
+                      {bookingPrecheck.existing_booking.quantity},{" "}
+                      {formatDt(bookingPrecheck.existing_booking.booking_date)})
+                    </>
+                  )}
+                </div>
+              )}
+              {bookingPrecheck?.has_overlap && !bookingPrecheck.already_booked_this_event && (
                 <div className="warn-banner">
                   <strong>Overlap notice (non-blocking):</strong> this user already has a paid booking overlapping
                   this time window:{" "}
-                  {overlap.conflicts.map((c) => c.event_name).join(", ")}
+                  {bookingPrecheck.conflicts.map((c) => c.event_name).join(", ")}
                 </div>
               )}
               {bookError && <p className="error">{bookError}</p>}
@@ -730,12 +823,21 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                 </ul>
               )}
               <button type="button" className="primary" onClick={requestBooking}>
-                Create booking + completed payment
+                {bookingPrecheck?.already_booked_this_event
+                  ? "Already booked — view notice"
+                  : "Create booking + completed payment"}
               </button>
             </>
           )}
         </div>
       )}
+
+      <AlreadyBookedModal
+        open={alreadyBookedModalOpen && tab === "detail" && isGuest}
+        onClose={() => setAlreadyBookedModalOpen(false)}
+        eventName={detail?.event.event_name ?? "this event"}
+        booking={bookingPrecheck?.existing_booking ?? null}
+      />
 
       <RefundWarningModal
         open={refundWarningOpen && tab === "detail" && isGuest}
