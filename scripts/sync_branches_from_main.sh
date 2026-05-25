@@ -34,7 +34,11 @@ write_sync_marker() {
 
 prune_junk() {
   find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+  find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
   find . -name .DS_Store -delete 2>/dev/null || true
+  find . -type f \( -name '* 2.*' -o -name '* 3.*' \) \
+    ! -path './.git/*' ! -path './backend/.venv/*' ! -path './.venv/*' \
+    ! -path './frontend/node_modules/*' -delete 2>/dev/null || true
 }
 
 sync_db_schema() {

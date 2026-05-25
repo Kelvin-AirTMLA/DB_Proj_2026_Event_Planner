@@ -18,7 +18,7 @@ This folder holds the **logical model**, **DDL**, and **seed data** for the Even
 
 Run `**01_ddl.sql` before `02_seed.sql**` on an **empty** database.
 
-If you already have a database from older DDL, run `03_alter_users_password_hash.sql` and/or `04_alter_organizers_password_hash.sql` once, then apply the demo `UPDATE` blocks at the end of `02_seed.sql` (guest user 1 and organizer 1 — password `demo123`).
+If you already have a database from older DDL, run `03_alter_users_password_hash.sql` and/or `04_alter_organizers_password_hash.sql` once, then run the `UPDATE` blocks at the end of `02_seed.sql` (sets `password_hash` on one guest and one organizer for local auth testing — no plaintext password in the repo).
 
 ## Quick start
 

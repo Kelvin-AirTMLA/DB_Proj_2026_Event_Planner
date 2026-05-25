@@ -1,6 +1,14 @@
 .DS_Store
 Thumbs.db
 
+# macOS Finder duplicate copies (e.g. "file 2.py")
+* 2.*
+* 3.*
+
+# Extra local venv names
+my_env/
+.pytest_cache/
+
 # Env / secrets (if you add an app later)
 .env
 .env.*
