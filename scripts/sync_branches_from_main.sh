@@ -21,13 +21,26 @@ if [[ "$(git branch --show-current)" != "main" ]]; then
   exit 1
 fi
 
+write_sync_marker() {
+  local path="$1"
+  local main_sha
+  main_sha="$(git rev-parse --short main)"
+  printf '%s\n' \
+    "# Updated by scripts/sync_branches_from_main.sh — do not edit by hand." \
+    "main_commit=${main_sha}" \
+    "synced_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    >"$path"
+}
+
 sync_db_schema() {
   git checkout db_schema
   git checkout main -- schema/ queries/
+  write_sync_marker .sync-from-main
+  git add schema/ queries/ .sync-from-main
   if git diff --cached --quiet; then
-    echo "db_schema: already up to date with main (schema + queries)."
+    echo "db_schema: no file changes vs main (schema + queries)."
   else
-    git commit -m "Sync schema and queries from main."
+    git commit -m "Sync schema and queries from main ($(git rev-parse --short main))."
     echo "db_schema: committed updates from main."
   fi
 }
@@ -35,10 +48,12 @@ sync_db_schema() {
 sync_backend() {
   git checkout backend
   git checkout main -- backend/ render.yaml
+  write_sync_marker backend/.sync-from-main
+  git add backend/ render.yaml
   if git diff --cached --quiet; then
-    echo "backend: already up to date with main."
+    echo "backend: no file changes vs main."
   else
-    git commit -m "Sync backend and render.yaml from main."
+    git commit -m "Sync backend and render.yaml from main ($(git rev-parse --short main))."
     echo "backend: committed updates from main."
   fi
 }
@@ -46,10 +61,12 @@ sync_backend() {
 sync_frontend() {
   git checkout frontend
   git checkout main -- frontend/
+  write_sync_marker frontend/.sync-from-main
+  git add frontend/
   if git diff --cached --quiet; then
-    echo "frontend: already up to date with main."
+    echo "frontend: no file changes vs main."
   else
-    git commit -m "Sync frontend from main."
+    git commit -m "Sync frontend from main ($(git rev-parse --short main))."
     echo "frontend: committed updates from main."
   fi
 }
