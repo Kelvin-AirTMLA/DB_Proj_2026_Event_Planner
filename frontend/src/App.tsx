@@ -131,6 +131,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
   /** Newest first; each booking adds a line so earlier confirmations are not replaced. */
   const [bookingSuccessLines, setBookingSuccessLines] = useState<string[]>([]);
   const [bookError, setBookError] = useState<string | null>(null);
+  const [refundWarningOpen, setRefundWarningOpen] = useState(false);
 
   const [checkEventId, setCheckEventId] = useState<number | "">("");
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -179,6 +180,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
 
   useEffect(() => {
     setBookingSuccessLines([]);
+    setRefundWarningOpen(false);
   }, [urlEventId]);
 
   const loadEvents = useCallback(async () => {
@@ -250,7 +252,17 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
     };
   }, [tab, urlEventId, isGuest]);
 
+  const requestBooking = () => {
+    setBookError(null);
+    if (ticketTypeId === "") {
+      setBookError("Choose a ticket type.");
+      return;
+    }
+    setRefundWarningOpen(true);
+  };
+
   const submitBooking = async () => {
+    setRefundWarningOpen(false);
     setBookError(null);
     if (ticketTypeId === "") {
       setBookError("Choose a ticket type.");
@@ -381,16 +393,6 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
   useEffect(() => {
     if (tab === "bookings" && isGuest) void loadMyBookings();
   }, [tab, isGuest]);
-
-  const cancelBooking = async (bookingId: number) => {
-    setMyBookingsError(null);
-    try {
-      await apiPost(`/api/bookings/${bookingId}/cancel`, {});
-      await loadMyBookings();
-    } catch (e) {
-      setMyBookingsError(e instanceof Error ? e.message : "Cancel failed");
-    }
-  };
 
   const doCheckIn = async (bookingId: number) => {
     setCheckinError(null);
@@ -636,9 +638,43 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                   ))}
                 </ul>
               )}
-              <button type="button" className="primary" onClick={() => void submitBooking()}>
+              <button type="button" className="primary" onClick={requestBooking}>
                 Create booking + completed payment
               </button>
+
+              {refundWarningOpen && (
+                <div
+                  className="modal-overlay"
+                  role="presentation"
+                  onClick={() => setRefundWarningOpen(false)}
+                >
+                  <div
+                    className="modal-panel"
+                    role="alertdialog"
+                    aria-labelledby="refund-warning-title"
+                    aria-describedby="refund-warning-desc"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3 id="refund-warning-title">Confirm booking</h3>
+                    <p id="refund-warning-desc">
+                      All ticket sales are <strong>final</strong>. This MVP does not offer refunds,
+                      cancellations, or chargebacks after payment is completed.
+                    </p>
+                    <p className="muted" style={{ marginBottom: 0 }}>
+                      By continuing, you agree to pay for this booking with no option to reverse it
+                      in the app.
+                    </p>
+                    <div className="modal-actions">
+                      <button type="button" className="ghost" onClick={() => setRefundWarningOpen(false)}>
+                        Go back
+                      </button>
+                      <button type="button" className="primary" onClick={() => void submitBooking()}>
+                        I understand — complete booking
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -785,7 +821,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
         <div className="panel">
           <h2>My bookings</h2>
           <p className="muted" style={{ marginTop: 0 }}>
-            Cancel sets <code>booking_status</code> to <code>cancelled</code> (no refund per spec).
+            View your reservations. All sales are final — no refunds or cancellations in this MVP.
           </p>
           <button type="button" className="ghost" style={{ marginBottom: "1rem" }} onClick={() => void loadMyBookings()}>
             Refresh
@@ -798,7 +834,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                 <th>Event</th>
                 <th>Qty</th>
                 <th>Status</th>
-                <th></th>
+                <th>Payment</th>
               </tr>
             </thead>
             <tbody>
@@ -812,16 +848,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                   </td>
                   <td>{b.quantity}</td>
                   <td>{b.booking_status}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="ghost"
-                      disabled={b.booking_status === "cancelled"}
-                      onClick={() => void cancelBooking(b.booking_id)}
-                    >
-                      Cancel
-                    </button>
-                  </td>
+                  <td>{b.payment_status ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
