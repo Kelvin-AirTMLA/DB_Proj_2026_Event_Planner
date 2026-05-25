@@ -1,4 +1,4 @@
-"""Auth HTTP tests — require Postgres with schema + seed (user 1: demo123)."""
+"""Auth HTTP tests — require Postgres with schema + seed (user 1 and organizer 1 have password_hash)."""
 
 import uuid
 
