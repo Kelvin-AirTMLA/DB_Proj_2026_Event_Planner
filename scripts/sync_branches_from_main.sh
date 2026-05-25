@@ -43,10 +43,10 @@ prune_junk() {
 
 sync_db_schema() {
   git checkout db_schema
-  git checkout main -- schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh
+  git checkout main -- .gitignore schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh
   write_sync_marker .sync-from-main
   prune_junk
-  git add schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh .sync-from-main
+  git add .gitignore schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh .sync-from-main
   if git diff --cached --quiet; then
     echo "db_schema: no file changes vs main."
   else
@@ -57,11 +57,11 @@ sync_db_schema() {
 
 sync_backend() {
   git checkout backend
-  git checkout main -- backend/ render.yaml docs/ README.md
+  git checkout main -- .gitignore backend/ render.yaml docs/ README.md
   write_sync_marker backend/.sync-from-main
   prune_junk
   git rm -r --cached backend/app/__pycache__ backend/.DS_Store 2>/dev/null || true
-  git add backend/ render.yaml docs/ README.md backend/.sync-from-main
+  git add .gitignore backend/ render.yaml docs/ README.md backend/.sync-from-main
   if git diff --cached --quiet; then
     echo "backend: no file changes vs main."
   else
@@ -72,11 +72,11 @@ sync_backend() {
 
 sync_frontend() {
   git checkout frontend
-  git checkout main -- frontend/ docs/ README.md
+  git checkout main -- .gitignore frontend/ docs/ README.md
   write_sync_marker frontend/.sync-from-main
   prune_junk
   git rm -r --cached frontend/node_modules 2>/dev/null || true
-  git add frontend/ docs/ README.md frontend/.sync-from-main
+  git add .gitignore frontend/ docs/ README.md frontend/.sync-from-main
   if git diff --cached --quiet; then
     echo "frontend: no file changes vs main."
   else
