@@ -60,7 +60,8 @@ sync_backend() {
   git checkout main -- backend/ render.yaml docs/ README.md
   write_sync_marker backend/.sync-from-main
   prune_junk
-  git add backend/ render.yaml docs/ README.md
+  git rm -r --cached backend/app/__pycache__ backend/.DS_Store 2>/dev/null || true
+  git add backend/ render.yaml docs/ README.md backend/.sync-from-main
   if git diff --cached --quiet; then
     echo "backend: no file changes vs main."
   else
