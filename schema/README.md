@@ -10,10 +10,15 @@ This folder holds the **logical model**, **DDL**, and **seed data** for the Even
 | `**schema.dbml`** | [DBML](https://dbml.dbdiagram.io/) for [dbdiagram.io](https://dbdiagram.io): ERD, export to PNG/PDF/SQL. |
 | `**01_ddl.sql**`  | `CREATE TABLE`, foreign keys (`ON DELETE CASCADE`), `CHECK` constraints, indexes.                        |
 | `**02_seed.sql**` | `INSERT` sample data (counts and statuses match the spec).                                               |
+| `**03_alter_users_password_hash.sql**` | One-time `ALTER` if your DB was created from older DDL without `users.password_hash`. |
+| `**04_alter_organizers_password_hash.sql**` | One-time `ALTER` if your DB lacks `organizers.password_hash`. |
+| `**05_alter_organizers_username.sql**` | One-time `ALTER` + backfill if your DB lacks `organizers.username`. |
 | `**ERD.png**`     | Exported diagram for submissions that ask for a schema image.                                            |
 
 
 Run `**01_ddl.sql` before `02_seed.sql**` on an **empty** database.
+
+If you already have a database from older DDL, run `03_alter_users_password_hash.sql` and/or `04_alter_organizers_password_hash.sql` once, then apply the demo `UPDATE` blocks at the end of `02_seed.sql` (guest user 1 and organizer 1 — password `demo123`).
 
 ## Quick start
 
@@ -46,7 +51,7 @@ psql -d event_mgmt -f schema/02_seed.sql
 
 ## Alignment with the project spec
 
-- **§8–§9:** Table columns, `CHECK`s, `**ON DELETE CASCADE`**, unique `payments.booking_id` / `check_ins.booking_id`, `users.username` unique, `users.email` not unique.
+- **§8–§9:** Table columns, `CHECK`s, `**ON DELETE CASCADE`**, unique `payments.booking_id` / `check_ins.booking_id`, `users.username` unique, `users.email` not unique, optional `users.password_hash` for app login (see spec section 5.4).
 - **§5.3:** Status values (`pending` / `ongoing` / `done`, booking and payment statuses, EUR amounts).
 - **§10:** Rough volumes (5 / 15 / 5 / 10 / 20 / 40 / 40 payments / subset of check-ins).
 
