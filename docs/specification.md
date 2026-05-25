@@ -111,9 +111,9 @@ For each entity: purpose, primary key name, and main attributes (name + type + N
 | venues       | `venue_id`       | Physical location; `capacity` supports realistic ticketing.                                                                                        |
 | events       | `event_id`       | One scheduled event; **`start_datetime` and `end_datetime` are both required**; FK to organizer; FK to venue (**NOT NULL** — §5.3). |
 | ticket_types | `ticket_type_id` | Ticket tier for one event (`price`, `quantity_available`).                                                                                         |
-| bookings     | `booking_id`     | **One row = one user + one ticket type + `quantity`.** Not a multi-line “cart.”                                                                    |
-| payments     | `payment_id`     | **1:1 with booking**; **no refunds** (§3.4) — no reversal/refund tables.                                                                           |
-| check_ins    | `check_in_id`    | At most one per booking (no-show = no row). `checked_in_by` = which organizer/staff recorded it.                                                   |
+| bookings     | `(user_id, ticket_type_id, booking_date)` | **Natural composite PK** — one row = one purchase moment for that user and ticket tier + `quantity`. Not a multi-line “cart.” |
+| payments     | same composite as booking | **1:1 with booking** (PK = booking key); **no refunds** (§3.4). |
+| check_ins    | same composite as booking | At most one per booking (no-show = no row). `checked_in_by` = organizer/staff who recorded it. |
 
 
 ### 5.2 Relationship summary
@@ -129,7 +129,7 @@ For each entity: purpose, primary key name, and main attributes (name + type + N
 | user        | bookings     | 1:N         | `bookings.user_id` NOT NULL.                                                                            |
 | ticket_type | bookings     | 1:N         | `bookings.ticket_type_id` NOT NULL.                                                                     |
 | booking     | payments     | 1:1         | Each booking has exactly one payment row when you model it this way.                                    |
-| booking     | check_ins    | 1:0..1      | Optional row after check-in; unique on `booking_id` in DDL.                                             |
+| booking     | check_ins    | 1:0..1      | Optional row after check-in; check-in PK = booking composite key.                                      |
 
 
 ### 5.3 Design decisions *(agreed — use in DDL, seed data, and report)*
@@ -276,24 +276,26 @@ Document intended result columns so implementation matches the report.
 
 ### bookings
 
+**Primary key:** `(user_id, ticket_type_id, booking_date)` — natural key (no surrogate `booking_id`).
 
 | Column         | Type             | Constraints / notes         |
 | -------------- | ---------------- | --------------------------- |
-| booking_id     | `SERIAL` / `INT` | PK                          |
-| user_id        | `INT`            | NOT NULL, FK → users        |
-| ticket_type_id | `INT`            | NOT NULL, FK → ticket_types |
+| user_id        | `INT`            | PK (part 1), FK → users     |
+| ticket_type_id | `INT`            | PK (part 2), FK → ticket_types |
+| booking_date   | `TIMESTAMP`      | PK (part 3), NOT NULL, default `NOW()` |
 | quantity       | `INT`            | NOT NULL, CHECK ≥ 1         |
-| booking_date   | `TIMESTAMP`      | NOT NULL, default `NOW()`   |
 | booking_status | `VARCHAR(50)`    | NOT NULL — `pending`, `confirmed`, `cancelled` (§5.3) |
 
 
 ### payments
 
+**Primary key:** `(user_id, ticket_type_id, booking_date)` — same as parent booking (1:1).
 
 | Column         | Type             | Constraints / notes             |
 | -------------- | ---------------- | ------------------------------- |
-| payment_id     | `SERIAL` / `INT` | PK                              |
-| booking_id     | `INT`            | NOT NULL, UNIQUE, FK → bookings |
+| user_id        | `INT`            | PK (part 1), FK → bookings      |
+| ticket_type_id | `INT`            | PK (part 2), FK → bookings      |
+| booking_date   | `TIMESTAMP`      | PK (part 3), FK → bookings      |
 | amount         | `NUMERIC(10,2)`  | NOT NULL, CHECK ≥ 0             |
 | payment_method | `VARCHAR(50)`    | NOT NULL                        |
 | payment_status | `VARCHAR(50)`    | NOT NULL — `pending`, `completed`, `failed` (§5.3) |
@@ -302,11 +304,13 @@ Document intended result columns so implementation matches the report.
 
 ### check_ins
 
+**Primary key:** `(user_id, ticket_type_id, booking_date)` — same as parent booking (0..1).
 
 | Column        | Type             | Constraints / notes                             |
 | ------------- | ---------------- | ----------------------------------------------- |
-| check_in_id   | `SERIAL` / `INT` | PK                                              |
-| booking_id    | `INT`            | NOT NULL, UNIQUE, FK → bookings                 |
+| user_id       | `INT`            | PK (part 1), FK → bookings                      |
+| ticket_type_id | `INT`           | PK (part 2), FK → bookings                      |
+| booking_date  | `TIMESTAMP`      | PK (part 3), FK → bookings                      |
 | check_in_time | `TIMESTAMP`      | NOT NULL                                        |
 | checked_in_by | `INT`            | NULL, FK → organizers *(who scanned/confirmed)* |
 
@@ -333,7 +337,7 @@ Document intended result columns so implementation matches the report.
 | Events       | 10    |                                      |
 | Ticket types | 20    |                                      |
 | Bookings     | 30–50 | Mix of `booking_status` values; most **`confirmed`** for analytics. |
-| Payments     | **1:1 with bookings** | **Exactly one `payments` row per booking** (`booking_id` UNIQUE). Include some **`pending`** / **`failed`** for realism; **`completed`** drives revenue and attendee counts (§6). |
+| Payments     | **1:1 with bookings** | **Exactly one `payments` row per booking** (payment PK = booking composite key). Include some **`pending`** / **`failed`** for realism; **`completed`** drives revenue and attendee counts (§6). |
 | Check-ins    | subset | Only for **past / `done`** events and **completed** payments; not every booking needs a check-in (no-show). |
 
 
@@ -352,8 +356,8 @@ Document intended result columns so implementation matches the report.
 | events       | `end_datetime`              | Optional extra index if you filter/sort by end often; many browse flows need only **`start_datetime`** (see §3.3). |
 | ticket_types | `event_id`                  | FK + join.                                                                                                                                                              |
 | bookings     | `user_id`, `ticket_type_id` | FK + join.                                                                                                                                                              |
-| payments     | `booking_id`                | FK + join.                                                                                                                                                              |
-| check_ins    | `booking_id`                | FK + join.                                                                                                                                                              |
+| payments     | `(user_id, ticket_type_id, booking_date)` | Composite FK to bookings; join on all three columns. |
+| check_ins    | `(user_id, ticket_type_id, booking_date)` | Composite FK to bookings; join on all three columns. |
 
 
 ---

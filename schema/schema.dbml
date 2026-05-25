@@ -61,22 +61,17 @@ Table ticket_types {
 }
 
 Table bookings {
-  booking_id integer [pk, increment]
-  user_id integer [not null]
-  ticket_type_id integer [not null]
+  user_id integer [pk, not null]
+  ticket_type_id integer [pk, not null]
+  booking_date timestamp [pk, not null, default: `now()`]
   quantity integer [not null, note: '>= 1 in DDL CHECK']
-  booking_date timestamp [not null, default: `now()`]
   booking_status varchar(50) [not null, note: 'pending | confirmed | cancelled']
-
-  Indexes {
-    (user_id)
-    (ticket_type_id)
-  }
 }
 
 Table payments {
-  payment_id integer [pk, increment]
-  booking_id integer [not null, unique]
+  user_id integer [pk, not null]
+  ticket_type_id integer [pk, not null]
+  booking_date timestamp [pk, not null]
   amount decimal(10,2) [not null, note: '>= 0 in DDL CHECK']
   payment_method varchar(50) [not null]
   payment_status varchar(50) [not null, note: 'pending | completed | failed']
@@ -84,8 +79,9 @@ Table payments {
 }
 
 Table check_ins {
-  check_in_id integer [pk, increment]
-  booking_id integer [not null, unique]
+  user_id integer [pk, not null]
+  ticket_type_id integer [pk, not null]
+  booking_date timestamp [pk, not null]
   check_in_time timestamp [not null]
   checked_in_by integer [note: 'FK organizers; optional']
 }
@@ -100,7 +96,7 @@ Ref: ticket_types.event_id > events.event_id [delete: cascade]
 Ref: bookings.user_id > users.user_id [delete: cascade]
 Ref: bookings.ticket_type_id > ticket_types.ticket_type_id [delete: cascade]
 
-Ref: payments.booking_id > bookings.booking_id [delete: cascade]
+Ref: payments.(user_id, ticket_type_id, booking_date) > bookings.(user_id, ticket_type_id, booking_date) [delete: cascade]
 
-Ref: check_ins.booking_id > bookings.booking_id [delete: cascade]
+Ref: check_ins.(user_id, ticket_type_id, booking_date) > bookings.(user_id, ticket_type_id, booking_date) [delete: cascade]
 Ref: check_ins.checked_in_by > organizers.organizer_id [delete: cascade]

@@ -51,7 +51,7 @@ psql -d event_mgmt -f schema/02_seed.sql
 
 ## Alignment with the project spec
 
-- **§8–§9:** Table columns, `CHECK`s, `**ON DELETE CASCADE`**, unique `payments.booking_id` / `check_ins.booking_id`, `users.username` unique, `users.email` not unique, optional `users.password_hash` for app login (see spec section 5.4).
+- **§8–§9:** Table columns, `CHECK`s, **`ON DELETE CASCADE`**, composite natural PK on `bookings` / `payments` / `check_ins` (`user_id`, `ticket_type_id`, `booking_date`), `users.username` unique, `users.email` not unique, optional `users.password_hash` for app login (see spec section 5.4).
 - **§5.3:** Status values (`pending` / `ongoing` / `done`, booking and payment statuses, EUR amounts).
 - **§10:** Rough volumes (5 / 15 / 5 / 10 / 20 / 40 / 40 payments / subset of check-ins).
 

@@ -66,9 +66,17 @@ type OverlapResponse = {
   conflicts: { event_id: number; event_name: string; start_datetime: string; end_datetime: string }[];
 };
 
-type BookingRow = {
-  booking_id: number;
+type BookingKey = {
   user_id: number;
+  ticket_type_id: number;
+  booking_date: string;
+};
+
+function bookingRowKey(b: BookingKey) {
+  return `${b.user_id}-${b.ticket_type_id}-${b.booking_date}`;
+}
+
+type BookingRow = BookingKey & {
   username: string;
   full_name: string;
   ticket_name: string;
@@ -184,7 +192,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const [ticketTypeId, setTicketTypeId] = useState<number | "">("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantityText, setQuantityText] = useState("1");
   const [overlap, setOverlap] = useState<OverlapResponse | null>(null);
   /** Newest first; each booking adds a line so earlier confirmations are not replaced. */
   const [bookingSuccessLines, setBookingSuccessLines] = useState<string[]>([]);
@@ -208,11 +216,9 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
   const [eventPrice, setEventPrice] = useState(15);
   const [eventTickets, setEventTickets] = useState(100);
 
-  type MyBookingRow = {
-    booking_id: number;
+  type MyBookingRow = BookingKey & {
     quantity: number;
     booking_status: string;
-    booking_date: string;
     event_id: number;
     event_name: string;
     start_datetime: string;
@@ -319,6 +325,12 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
     setRefundWarningOpen(true);
   };
 
+  const bookingQuantity = (): number | null => {
+    const n = parseInt(quantityText.trim(), 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return n;
+  };
+
   const submitBooking = async () => {
     setRefundWarningOpen(false);
     setBookError(null);
@@ -326,14 +338,22 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
       setBookError("Choose a ticket type.");
       return;
     }
+    const quantity = bookingQuantity();
+    if (quantity === null) {
+      setBookError("Enter a valid quantity (1 or more).");
+      return;
+    }
     const bookedTicketTypeId = ticketTypeId;
     try {
-      const res = await apiPost<{ booking_id: number; amount_eur: number }>("/api/bookings", {
+      const res = await apiPost<{
+        amount_eur: number;
+        booking: { booking_date: string };
+      }>("/api/bookings", {
         ticket_type_id: ticketTypeId,
         quantity,
         payment_method: "card",
       });
-      const line = `Booking #${res.booking_id} confirmed — €${res.amount_eur.toFixed(2)}.`;
+      const line = `Booking confirmed (${formatDt(res.booking.booking_date)}) — €${res.amount_eur.toFixed(2)}.`;
       setBookingSuccessLines((prev) => [line, ...prev].slice(0, 12));
       if (urlEventId) {
         try {
@@ -452,10 +472,14 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
     if (tab === "bookings" && isGuest) void loadMyBookings();
   }, [tab, isGuest]);
 
-  const doCheckIn = async (bookingId: number) => {
+  const doCheckIn = async (b: BookingRow) => {
     setCheckinError(null);
     try {
-      await apiPost("/api/check-ins", { booking_id: bookingId });
+      await apiPost("/api/check-ins", {
+        user_id: b.user_id,
+        ticket_type_id: b.ticket_type_id,
+        booking_date: b.booking_date,
+      });
       await loadCheckins();
     } catch (e) {
       setCheckinError(e instanceof Error ? e.message : "Check-in failed");
@@ -676,8 +700,17 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                   <input
                     type="number"
                     min={1}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+                    step={1}
+                    inputMode="numeric"
+                    value={quantityText}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "" || /^\d+$/.test(raw)) setQuantityText(raw);
+                    }}
+                    onBlur={() => {
+                      const n = bookingQuantity();
+                      setQuantityText(n === null ? "1" : String(n));
+                    }}
                   />
                 </label>
               </div>
@@ -860,7 +893,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Booked</th>
                 <th>Event</th>
                 <th>Qty</th>
                 <th>Status</th>
@@ -869,8 +902,8 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
             </thead>
             <tbody>
               {myBookings.map((b) => (
-                <tr key={b.booking_id}>
-                  <td>{b.booking_id}</td>
+                <tr key={bookingRowKey(b)}>
+                  <td>{formatDt(b.booking_date)}</td>
                   <td>
                     {b.event_name}
                     <br />
@@ -911,7 +944,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
           <table>
             <thead>
               <tr>
-                <th>Booking</th>
+                <th>Booked</th>
                 <th>Guest</th>
                 <th>Ticket</th>
                 <th>Qty</th>
@@ -922,8 +955,8 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
             </thead>
             <tbody>
               {bookings.map((b) => (
-                <tr key={b.booking_id}>
-                  <td>{b.booking_id}</td>
+                <tr key={bookingRowKey(b)}>
+                  <td>{formatDt(b.booking_date)}</td>
                   <td>
                     {b.username}
                     <br />
@@ -938,7 +971,7 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
                       type="button"
                       className="primary"
                       disabled={b.checked_in}
-                      onClick={() => void doCheckIn(b.booking_id)}
+                      onClick={() => void doCheckIn(b)}
                     >
                       Check in
                     </button>

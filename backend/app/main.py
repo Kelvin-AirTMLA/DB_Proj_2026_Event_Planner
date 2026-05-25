@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -25,6 +26,13 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+
+
+def parse_booking_timestamp(value: str) -> datetime:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid booking_date") from exc
 
 
 @app.get("/api/health")
@@ -265,7 +273,10 @@ def overlap_warning(
             FROM bookings b
             JOIN ticket_types tt ON tt.ticket_type_id = b.ticket_type_id
             JOIN events e ON e.event_id = tt.event_id
-            JOIN payments p ON p.booking_id = b.booking_id
+            JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
             WHERE b.user_id = %s
               AND b.booking_status = 'confirmed'
               AND p.payment_status = 'completed'
@@ -316,21 +327,29 @@ def create_booking(
             """
             INSERT INTO bookings (user_id, ticket_type_id, quantity, booking_status)
             VALUES (%s, %s, %s, 'confirmed')
-            RETURNING booking_id, booking_date
+            RETURNING user_id, ticket_type_id, booking_date
             """,
             (user_id, body.ticket_type_id, body.quantity),
         )
         booking = cur.fetchone()
         if not booking:
             raise HTTPException(status_code=500, detail="Booking insert failed")
-        booking_id = booking["booking_id"]
 
         cur.execute(
             """
-            INSERT INTO payments (booking_id, amount, payment_method, payment_status, payment_date)
-            VALUES (%s, %s, %s, 'completed', CURRENT_TIMESTAMP)
+            INSERT INTO payments (
+                user_id, ticket_type_id, booking_date,
+                amount, payment_method, payment_status, payment_date
+            )
+            VALUES (%s, %s, %s, %s, %s, 'completed', CURRENT_TIMESTAMP)
             """,
-            (booking_id, amount, body.payment_method),
+            (
+                booking["user_id"],
+                booking["ticket_type_id"],
+                booking["booking_date"],
+                amount,
+                body.payment_method,
+            ),
         )
 
         cur.execute(
@@ -347,7 +366,6 @@ def create_booking(
             raise HTTPException(status_code=409, detail="Could not update inventory")
 
     return {
-        "booking_id": booking_id,
         "amount_eur": float(amount),
         "booking": serialize_row(dict(booking)),
     }
@@ -359,7 +377,8 @@ def my_bookings(user_id: Annotated[int, Depends(get_current_guest_id)]) -> list[
         cur.execute(
             """
             SELECT
-                b.booking_id,
+                b.user_id,
+                b.ticket_type_id,
                 b.quantity,
                 b.booking_status,
                 b.booking_date,
@@ -372,7 +391,10 @@ def my_bookings(user_id: Annotated[int, Depends(get_current_guest_id)]) -> list[
             FROM bookings b
             JOIN ticket_types tt ON tt.ticket_type_id = b.ticket_type_id
             JOIN events e ON e.event_id = tt.event_id
-            LEFT JOIN payments p ON p.booking_id = b.booking_id
+            LEFT JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
             WHERE b.user_id = %s
             ORDER BY b.booking_date DESC
             """,
@@ -382,40 +404,49 @@ def my_bookings(user_id: Annotated[int, Depends(get_current_guest_id)]) -> list[
     return [serialize_row(dict(r)) for r in rows]
 
 
-@app.post("/api/bookings/{booking_id}/cancel")
+class CancelBookingBody(BaseModel):
+    ticket_type_id: int
+    booking_date: str
+
+
+@app.post("/api/bookings/cancel")
 def cancel_booking(
-    booking_id: int,
+    body: CancelBookingBody,
     user_id: Annotated[int, Depends(get_current_guest_id)],
 ) -> dict[str, Any]:
+    booking_ts = parse_booking_timestamp(body.booking_date)
     with get_cursor() as cur:
         cur.execute(
             """
-            SELECT b.booking_id, b.user_id, b.quantity, b.booking_status, b.ticket_type_id
+            SELECT b.user_id, b.quantity, b.booking_status, b.ticket_type_id, b.booking_date
             FROM bookings b
-            WHERE b.booking_id = %s
+            WHERE b.user_id = %s
+              AND b.ticket_type_id = %s
+              AND b.booking_date = %s
             """,
-            (booking_id,),
+            (user_id, body.ticket_type_id, booking_ts),
         )
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Booking not found")
-        if int(row["user_id"]) != user_id:
-            raise HTTPException(status_code=403, detail="Not your booking")
         if row["booking_status"] == "cancelled":
             raise HTTPException(status_code=400, detail="Booking already cancelled")
         cur.execute(
-            "SELECT 1 FROM check_ins WHERE booking_id = %s",
-            (booking_id,),
+            """
+            SELECT 1 FROM check_ins
+            WHERE user_id = %s AND ticket_type_id = %s AND booking_date = %s
+            """,
+            (user_id, body.ticket_type_id, booking_ts),
         )
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="Cannot cancel after check-in")
         cur.execute(
             """
             UPDATE bookings SET booking_status = 'cancelled'
-            WHERE booking_id = %s
-            RETURNING booking_id, booking_status
+            WHERE user_id = %s AND ticket_type_id = %s AND booking_date = %s
+            RETURNING user_id, ticket_type_id, booking_date, booking_status
             """,
-            (booking_id,),
+            (user_id, body.ticket_type_id, booking_ts),
         )
         updated = cur.fetchone()
         cur.execute(
@@ -449,23 +480,30 @@ def event_bookings(
         cur.execute(
             """
             SELECT
-                b.booking_id,
                 b.user_id,
+                b.ticket_type_id,
+                b.booking_date,
                 u.username,
                 u.full_name,
                 tt.ticket_name,
                 b.quantity,
                 b.booking_status,
                 p.payment_status,
-                (c.check_in_id IS NOT NULL) AS checked_in,
+                (c.user_id IS NOT NULL) AS checked_in,
                 c.check_in_time
             FROM ticket_types tt
             JOIN bookings b ON b.ticket_type_id = tt.ticket_type_id
             JOIN users u ON u.user_id = b.user_id
-            LEFT JOIN payments p ON p.booking_id = b.booking_id
-            LEFT JOIN check_ins c ON c.booking_id = b.booking_id
+            LEFT JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
+            LEFT JOIN check_ins c
+              ON c.user_id = b.user_id
+             AND c.ticket_type_id = b.ticket_type_id
+             AND c.booking_date = b.booking_date
             WHERE tt.event_id = %s
-            ORDER BY b.booking_id
+            ORDER BY b.booking_date
             """,
             (event_id,),
         )
@@ -474,7 +512,9 @@ def event_bookings(
 
 
 class CheckInBody(BaseModel):
-    booking_id: int
+    user_id: int
+    ticket_type_id: int
+    booking_date: str
 
 
 @app.post("/api/check-ins")
@@ -482,6 +522,7 @@ def create_check_in(
     body: CheckInBody,
     organizer_id: Annotated[int, Depends(get_current_organizer_id)],
 ) -> dict[str, Any]:
+    booking_ts = parse_booking_timestamp(body.booking_date)
     with get_cursor() as cur:
         cur.execute(
             """
@@ -489,9 +530,11 @@ def create_check_in(
             FROM bookings b
             JOIN ticket_types tt ON tt.ticket_type_id = b.ticket_type_id
             JOIN events e ON e.event_id = tt.event_id
-            WHERE b.booking_id = %s
+            WHERE b.user_id = %s
+              AND b.ticket_type_id = %s
+              AND b.booking_date = %s
             """,
-            (body.booking_id,),
+            (body.user_id, body.ticket_type_id, booking_ts),
         )
         booking_ev = cur.fetchone()
         if not booking_ev:
@@ -500,19 +543,20 @@ def create_check_in(
             raise HTTPException(status_code=403, detail="Not your event")
         cur.execute(
             """
-            SELECT booking_id FROM check_ins WHERE booking_id = %s
+            SELECT user_id FROM check_ins
+            WHERE user_id = %s AND ticket_type_id = %s AND booking_date = %s
             """,
-            (body.booking_id,),
+            (body.user_id, body.ticket_type_id, booking_ts),
         )
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="Already checked in")
         cur.execute(
             """
-            INSERT INTO check_ins (booking_id, check_in_time, checked_in_by)
-            VALUES (%s, CURRENT_TIMESTAMP, %s)
-            RETURNING check_in_id, check_in_time
+            INSERT INTO check_ins (user_id, ticket_type_id, booking_date, check_in_time, checked_in_by)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s)
+            RETURNING user_id, ticket_type_id, booking_date, check_in_time
             """,
-            (body.booking_id, organizer_id),
+            (body.user_id, body.ticket_type_id, booking_ts, organizer_id),
         )
         row = cur.fetchone()
         if not row:
@@ -543,7 +587,10 @@ def analytics_attendees_per_event(
             FROM events e
             LEFT JOIN ticket_types tt ON tt.event_id = e.event_id
             LEFT JOIN bookings b ON b.ticket_type_id = tt.ticket_type_id
-            LEFT JOIN payments p ON p.booking_id = b.booking_id
+            LEFT JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
             WHERE e.organizer_id = %s
             GROUP BY e.event_id, e.event_name
             ORDER BY e.event_id
@@ -572,7 +619,10 @@ def analytics_revenue_per_organizer(
             LEFT JOIN events e ON e.organizer_id = o.organizer_id
             LEFT JOIN ticket_types tt ON tt.event_id = e.event_id
             LEFT JOIN bookings b ON b.ticket_type_id = tt.ticket_type_id
-            LEFT JOIN payments p ON p.booking_id = b.booking_id
+            LEFT JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
             WHERE o.organizer_id = %s
             GROUP BY o.organizer_id, o.organizer_name
             ORDER BY o.organizer_id
@@ -602,16 +652,25 @@ def analytics_attendance_rate(
                 SELECT COALESCE(SUM(b.quantity), 0)::numeric AS tickets_sold
                 FROM bookings b
                 JOIN ticket_types tt ON tt.ticket_type_id = b.ticket_type_id
-                JOIN payments p ON p.booking_id = b.booking_id
+                JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
                 WHERE p.payment_status = 'completed'
                   AND tt.event_id IN (SELECT event_id FROM ev)
             ),
             checked AS (
                 SELECT COUNT(*)::numeric AS check_in_count
                 FROM check_ins c
-                JOIN bookings b ON b.booking_id = c.booking_id
+                JOIN bookings b
+                  ON b.user_id = c.user_id
+                 AND b.ticket_type_id = c.ticket_type_id
+                 AND b.booking_date = c.booking_date
                 JOIN ticket_types tt ON tt.ticket_type_id = b.ticket_type_id
-                JOIN payments p ON p.booking_id = b.booking_id
+                JOIN payments p
+              ON p.user_id = b.user_id
+             AND p.ticket_type_id = b.ticket_type_id
+             AND p.booking_date = b.booking_date
                 WHERE p.payment_status = 'completed'
                   AND tt.event_id IN (SELECT event_id FROM ev)
             )
