@@ -32,10 +32,16 @@ write_sync_marker() {
     >"$path"
 }
 
+prune_junk() {
+  find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+  find . -name .DS_Store -delete 2>/dev/null || true
+}
+
 sync_db_schema() {
   git checkout db_schema
   git checkout main -- schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh
   write_sync_marker .sync-from-main
+  prune_junk
   git add schema/ queries/ docs/ README.md scripts/bootstrap_remote_db.sh .sync-from-main
   if git diff --cached --quiet; then
     echo "db_schema: no file changes vs main."
@@ -49,6 +55,7 @@ sync_backend() {
   git checkout backend
   git checkout main -- backend/ render.yaml docs/ README.md
   write_sync_marker backend/.sync-from-main
+  prune_junk
   git add backend/ render.yaml docs/ README.md
   if git diff --cached --quiet; then
     echo "backend: no file changes vs main."
@@ -62,6 +69,7 @@ sync_frontend() {
   git checkout frontend
   git checkout main -- frontend/ docs/ README.md
   write_sync_marker frontend/.sync-from-main
+  prune_junk
   git add frontend/ docs/ README.md
   if git diff --cached --quiet; then
     echo "frontend: no file changes vs main."
