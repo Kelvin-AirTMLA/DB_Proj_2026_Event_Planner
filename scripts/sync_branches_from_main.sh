@@ -83,7 +83,9 @@ sync_backend() {
   git reset --hard main
   prune_junk
   git_rm_if_present \
-    AGENTS.md frontend schema queries scripts render.yaml
+    AGENTS.md frontend schema queries \
+    scripts/bootstrap_remote_db.sh scripts/cleanup_repo.sh \
+    scripts/sync_branches_from_main.sh scripts/export_presentation.sh
   commit_slice backend backend/.sync-from-main
 }
 
