@@ -153,7 +153,8 @@ For each entity: purpose, primary key name, and main attributes (name + type + N
 - **Session:** Short-lived **JWT** (signed with a server secret, not stored in PostgreSQL). **Guests** book tickets (token `user_id`). **Organizers** run door check-in and view **their** analytics (token `organizer_id`). Endpoints reject the wrong role (HTTP 403).
 - **Course SQL:** Full cross-organizer analytics remain in `queries/*.sql` for grading; the app UI scopes organizer stats to the logged-in organizer only.
 - **Create event (organizer):** `GET /api/venues` lists venues for the form. `POST /api/events` (organizer JWT only) inserts **`events`** and one default **`ticket_types`** row (`Standard`, price/qty from the form). No separate “ticket type” UI — guests still book via that row.
-- **Cancel booking (guest):** `POST /api/bookings/{id}/cancel` sets **`booking_status = 'cancelled'`**, restores ticket inventory; no refund (§3.4). `GET /api/bookings/mine` lists the guest’s bookings.
+- **My bookings (guest):** `GET /api/bookings/mine` lists the guest’s bookings (read-only). No cancellation in the MVP UI — all sales final (§3.4).
+- **Book ticket (guest):** Before `POST /api/bookings`, the UI shows a **no-refund confirmation modal**; the user must acknowledge that sales are final (§3.4).
 - **No edit event** in MVP — events are not updated after create.
 
 ---
