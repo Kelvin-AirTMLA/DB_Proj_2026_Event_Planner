@@ -229,14 +229,14 @@ SELECT setval(pg_get_serial_sequence('payments',     'payment_id'),     (SELECT 
 SELECT setval(pg_get_serial_sequence('check_ins',    'check_in_id'),    (SELECT MAX(check_in_id)    FROM check_ins));
 
 -- -----------------------------------------------------------------------------
--- Demo password login (MVP auth): user_id 1 only — password is "demo123"
+-- Sample password_hash (MVP auth): user_id 1 only — bcrypt hash below
 -- Email is shared with user_id 2 in seed; only user 1 has a hash so email login is unambiguous.
 -- -----------------------------------------------------------------------------
 UPDATE users
 SET password_hash = '$2b$12$kZNXRN1b7sgrOmwC7jvS1.hubwKRQzhrN2Y2TIGqtx8UqjX2t/YvW'
 WHERE user_id = 1;
 
--- Organizer demo login: organizer_id 1 — email hello@nlevents.eu or username nle_events, password "demo123"
+-- Organizer sample password_hash: organizer_id 1 — bcrypt hash below (email/username in INSERT above)
 UPDATE organizers
 SET password_hash = '$2b$12$kZNXRN1b7sgrOmwC7jvS1.hubwKRQzhrN2Y2TIGqtx8UqjX2t/YvW'
 WHERE organizer_id = 1;
