@@ -9,12 +9,36 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 | Branch | Contents | Integration |
 |--------|----------|-------------|
 | **`main`** | Full project (schema, queries, backend, frontend, docs) | Deploy and demo from here |
-| **`db_schema`** | `schema/`, `queries/` only | Sync from main: `git checkout main -- schema/ queries/` |
-| **`backend`** | `backend/`, `render.yaml` | Sync from main: `git checkout main -- backend/ render.yaml` |
-| **`frontend`** | `frontend/` only | Sync from main: `git checkout main -- frontend/` |
+| **`db_schema`** | `schema/`, `queries/` only | See sync script below |
+| **`backend`** | `backend/`, `render.yaml` | See sync script below |
+| **`frontend`** | `frontend/` only | See sync script below |
 | **`docs`** | Documentation (if used) | Separate doc work |
 
-Feature branches should merge into **`main`** first; then copy the relevant folders into `db_schema`, `backend`, or `frontend` as needed.
+### Avoid merge conflicts
+
+`db_schema`, `backend`, and `frontend` are **partial trees** (most root files were removed on purpose).  
+**Do not run `git merge main`** on those branches — Git will report modify/delete conflicts on `README.md`, `.gitignore`, `docs/`, etc.
+
+**Correct workflow**
+
+1. Merge feature work into **`main`** (normal PRs).
+2. Sync slices from `main` without merging:
+
+```bash
+chmod +x scripts/sync_branches_from_main.sh
+./scripts/sync_branches_from_main.sh          # all three
+./scripts/sync_branches_from_main.sh db_schema  # one branch
+git push origin db_schema backend frontend
+```
+
+**If you are stuck mid-merge**
+
+```bash
+git merge --abort                    # if merge is in progress
+# or
+git reset --hard origin/db_schema    # replace branchname as needed
+git checkout main
+```
 
 ## Course deliverables
 
