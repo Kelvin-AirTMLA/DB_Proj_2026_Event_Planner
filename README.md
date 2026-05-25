@@ -6,10 +6,7 @@ An Event Management App for the **Database Fundamentals** course. The emphasis i
 
 **URL:** [https://event-management-lzcd.onrender.com/](https://event-management-lzcd.onrender.com/)
 
-| | |
-|---|---|
-| **Scan (QR)** | **Open in browser** |
-| ![Demo QR code](docs/demo-qr.png) | Guest: `alex.m@student.edu` / `demo123` · Organizer: `hello@nlevents.eu` or `nle_events` / `demo123` |
+![Demo QR code](docs/demo-qr.png)
 
 First load on Render free tier may take ~30s while the service wakes up.
 
@@ -168,39 +165,11 @@ Single source of detail: [`docs/specification.md`](docs/specification.md) (§5.3
 
 ---
 
-## Proposed schema (draft)
+## Schema and SQL (source of truth)
 
-### `organizers`
-
-- `organizer_id`, `organizer_name`, `email`, `phone`, `created_at`
-
-### `users`
-
-- `user_id`, `username` (unique), `full_name`, `email` (required, not unique), `phone`, `created_at`
-
-### `venues`
-
-- `venue_id`, `venue_name`, `address`, `city`, `capacity`
-
-### `events`
-
-- `event_id`, `organizer_id`, `venue_id` (required), `event_name`, `description`, `category`, `start_datetime` (required), `end_datetime` (required), `status`, `created_at`
-
-### `ticket_types`
-
-- `ticket_type_id`, `event_id`, `ticket_name`, `price`, `quantity_available`
-
-### `bookings`
-
-- `booking_id`, `user_id`, `ticket_type_id`, `quantity`, `booking_date`, `booking_status`
-
-### `payments`
-
-- `payment_id`, `booking_id`, `amount`, `payment_method`, `payment_status`, `payment_date`
-
-### `check_ins`
-
-- `check_in_id`, `booking_id`, `check_in_time`, `checked_in_by`
+- **DDL + seed:** [`schema/01_ddl.sql`](schema/01_ddl.sql), [`schema/02_seed.sql`](schema/02_seed.sql) — see [`schema/README.md`](schema/README.md)
+- **ERD / DBML:** [`schema/schema.dbml`](schema/schema.dbml), [`schema/ERD.png`](schema/ERD.png)
+- **Course analytics:** [`queries/`](queries/) (definitions in spec §6)
 
 ---
 
@@ -212,33 +181,9 @@ Single source of detail: [`docs/specification.md`](docs/specification.md) (§5.3
 
 ---
 
-## Fake data plan
+## Seed data and indexes
 
-Target volumes for realistic demos and meaningful query results:
-
-- 5 organizers  
-- 15 users  
-- 5 venues  
-- 10 events  
-- 20 ticket types  
-- 30–50 bookings  
-- **One payment per booking** (include some `pending` / `failed` for realism; revenue uses `completed` only)  
-- Check-ins for a subset of past / `done` events (not every booking)  
-
----
-
-## Indexes / optimization
-
-Suggested indexes on foreign keys and hot columns:
-
-- `events.organizer_id`, `events.venue_id`  
-- `events.start_datetime` (time-range browse / “upcoming” lists)  
-- `ticket_types.event_id`  
-- `bookings.user_id`, `bookings.ticket_type_id`  
-- `payments.booking_id`  
-- `check_ins.booking_id`  
-
-Document these in the report as performance considerations.
+Volumes, statuses, and index list: **`docs/specification.md` §10** and **`schema/01_ddl.sql`** (indexes are in DDL).
 
 ---
 
@@ -280,7 +225,7 @@ npm run dev
 
 Open `http://localhost:5173`. During development, Vite proxies `/api` to `http://127.0.0.1:8000`. The SPA uses client routes (for example `/login`, `/events`, `/events/9`, `/analytics`, `/check-in`); unknown paths under a logged-in session redirect to `/events`.
 
-The MVP covers **email or username + password** auth (register inserts into `users` with a bcrypt `password_hash`; JWT session), browsing events (optional start-time range), creating a booking as the signed-in user with an immediate **completed** payment (inventory decremented), overlap **warnings** (non-blocking, per spec), the three **analytics** endpoints aligned with `docs/specification.md` section 6, and **check-ins** for an event. After a fresh seed, you can log in with email `alex.m@student.edu` and password `demo123` (only `user_id` 1 receives a demo hash so email login stays unambiguous with shared seed emails).
+The MVP covers **email or username + password** auth (register inserts into `users` with a bcrypt `password_hash`; JWT session), browsing events (optional start-time range), creating a booking as the signed-in user with an immediate **completed** payment (inventory decremented), overlap **warnings** (non-blocking, per spec), the three **analytics** endpoints aligned with `docs/specification.md` section 6, and **check-ins** for an event. After a fresh seed, use **Register** on the sign-in page for guests; organizer sign-in uses seeded `organizers` rows with `password_hash` (see end of `schema/02_seed.sql`).
 
 ---
 
@@ -294,16 +239,17 @@ The MVP covers **email or username + password** auth (register inserts into `use
 
 ---
 
-## Next steps
+## Repository layout
 
-1. Finalize the entity list  
-2. Create the DBML schema  
-3. Generate the schema image  
-4. Write SQL DDL  
-5. Add fake data  
-6. Write the 3 required SQL queries  
-7. Add indexes  
-8. Decide on a simple MVP / demo  
+| Path | Purpose |
+|------|---------|
+| `docs/specification.md` | Authoritative business rules |
+| `schema/` | DDL, seed, DBML, ERD |
+| `queries/` | Three course SQL reports |
+| `backend/` | FastAPI API (+ `static/` after frontend build) |
+| `frontend/` | React MVP |
+| `scripts/` | Bootstrap, branch sync, presentation export, [`cleanup_repo.sh`](scripts/cleanup_repo.sh) |
+| `docs/DEPLOY.md` | Render deployment |
 
 ---
 

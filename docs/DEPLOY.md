@@ -92,8 +92,7 @@ Use this if you **already created Postgres on Render** and do not want a second 
 
 1. Open `https://YOUR-SERVICE.onrender.com/api/health` → `{"status":"ok"}`.
 2. Open `https://YOUR-SERVICE.onrender.com/` → sign-in page.
-3. Log in as guest: `alex.m@student.edu` / `demo123`.
-4. Log in as organizer: `hello@nlevents.eu` / `demo123`.
+3. **Register** a guest on the sign-in page. Organizer sign-in requires a seeded row with `password_hash` (see `schema/README.md` and end of `02_seed.sql` — shared demo passwords are not documented in the repo).
 
 Free tier services **spin down** after ~15 min idle; first request may take 30–60 seconds.
 
@@ -130,7 +129,7 @@ Build frontend: `cd frontend && npm run build`, deploy `dist/`.
 
 - Never commit `.env` or real `DATABASE_URL` / `JWT_SECRET`.
 - Use a strong `JWT_SECRET` in production.
-- Rotate demo passwords before a public demo if the DB is exposed.
+- Do not publish or commit real user passwords; use Register or per-environment secrets for hosted demos.
 
 ---
 
