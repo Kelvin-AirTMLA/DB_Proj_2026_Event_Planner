@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BrowserRouter,
   Navigate,
@@ -77,6 +78,63 @@ type BookingRow = {
   checked_in: boolean;
   check_in_time: string | null;
 };
+
+function RefundWarningModal({
+  open,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div className="modal-overlay" role="presentation" onClick={onClose}>
+      <div
+        className="modal-panel"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="refund-warning-title"
+        aria-describedby="refund-warning-desc"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="refund-warning-title">Confirm booking</h3>
+        <p id="refund-warning-desc">
+          All ticket sales are <strong>final</strong>. This MVP does not offer refunds, cancellations,
+          or chargebacks after payment is completed.
+        </p>
+        <p className="muted" style={{ marginBottom: 0 }}>
+          By continuing, you agree to pay for this booking with no option to reverse it in the app.
+        </p>
+        <div className="modal-actions">
+          <button type="button" className="ghost" onClick={onClose}>
+            Go back
+          </button>
+          <button type="button" className="primary" onClick={onConfirm}>
+            I understand — complete booking
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 function formatDt(iso: string) {
   try {
@@ -641,44 +699,16 @@ function MainShell({ session, onLogout }: { session: SessionAccount; onLogout: (
               <button type="button" className="primary" onClick={requestBooking}>
                 Create booking + completed payment
               </button>
-
-              {refundWarningOpen && (
-                <div
-                  className="modal-overlay"
-                  role="presentation"
-                  onClick={() => setRefundWarningOpen(false)}
-                >
-                  <div
-                    className="modal-panel"
-                    role="alertdialog"
-                    aria-labelledby="refund-warning-title"
-                    aria-describedby="refund-warning-desc"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <h3 id="refund-warning-title">Confirm booking</h3>
-                    <p id="refund-warning-desc">
-                      All ticket sales are <strong>final</strong>. This MVP does not offer refunds,
-                      cancellations, or chargebacks after payment is completed.
-                    </p>
-                    <p className="muted" style={{ marginBottom: 0 }}>
-                      By continuing, you agree to pay for this booking with no option to reverse it
-                      in the app.
-                    </p>
-                    <div className="modal-actions">
-                      <button type="button" className="ghost" onClick={() => setRefundWarningOpen(false)}>
-                        Go back
-                      </button>
-                      <button type="button" className="primary" onClick={() => void submitBooking()}>
-                        I understand — complete booking
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
       )}
+
+      <RefundWarningModal
+        open={refundWarningOpen && tab === "detail" && isGuest}
+        onClose={() => setRefundWarningOpen(false)}
+        onConfirm={() => void submitBooking()}
+      />
 
       {tab === "analytics" && isOrganizer && (
         <div className="panel">
