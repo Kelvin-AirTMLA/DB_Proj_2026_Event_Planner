@@ -106,7 +106,7 @@ For each entity: purpose, primary key name, and main attributes (name + type + N
 
 | Entity       | PK               | Notes                                                                                                                                              |
 | ------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| organizers   | `organizer_id`   | Account that creates/manages events. `email` should be UNIQUE.                                                                                     |
+| organizers   | `organizer_id`   | Account that creates/manages events. **`username` UNIQUE** (login); **`email` UNIQUE**.                                                              |
 | users        | `user_id`        | Attendee accounts (browse + book). Separate from organizers. **`username` UNIQUE** (login); **`email` NOT NULL, not unique** (shared emails allowed). |
 | venues       | `venue_id`       | Physical location; `capacity` supports realistic ticketing.                                                                                        |
 | events       | `event_id`       | One scheduled event; **`start_datetime` and `end_datetime` are both required**; FK to organizer; FK to venue (**NOT NULL** — §5.3). |
@@ -141,6 +141,21 @@ For each entity: purpose, primary key name, and main attributes (name + type + N
 - **`payment_status`:** `pending`, `completed`, `failed` — **revenue** counts only rows with **`payment_status = 'completed'`** (see §6.2).
 - **Currency:** Amounts are in **EUR** (euros); store numeric values only, no multi-currency.
 - **Users:** **`username`** — NOT NULL, **UNIQUE** (sign-in / display handle). **`email`** — NOT NULL, **not UNIQUE** (e.g. family or team accounts may share an inbox).
+
+### 5.4 Web authentication (MVP app layer)
+
+- **`users.password_hash`:** Optional column (`NULL` allowed). **Legacy / seed rows** may keep `NULL` (no password-based login for that row). **New self-registered guests** get a **bcrypt** hash stored here; the API never returns this column.
+- **`organizers.password_hash`:** Same pattern for organizer accounts. Organizer **`email` is UNIQUE**, so organizer login uses **email + password** only.
+- **Two account kinds (separate tables):**
+  - **Guest (attendee)** — `users` row. **`username` UNIQUE**; **`email` NOT NULL, not UNIQUE**. Register: `POST /api/auth/register`. Login: `POST /api/auth/login` (email) or `POST /api/auth/login/username`. JWT **`role: guest`**, **`sub`** = `user_id`.
+  - **Organizer** — `organizers` row. **`username` UNIQUE**; **`email` UNIQUE**. Register: `POST /api/auth/register/organizer`. Login: `POST /api/auth/login/organizer` (email) or `POST /api/auth/login/organizer/username`. JWT **`role: organizer`**, **`sub`** = `organizer_id`.
+- **Guest email login:** Because **`users.email` is not unique**, if more than one guest row with the same email has a non-null `password_hash`, the API responds with an error instructing the client to use **username + password** instead.
+- **Session:** Short-lived **JWT** (signed with a server secret, not stored in PostgreSQL). **Guests** book tickets (token `user_id`). **Organizers** run door check-in and view **their** analytics (token `organizer_id`). Endpoints reject the wrong role (HTTP 403).
+- **Course SQL:** Full cross-organizer analytics remain in `queries/*.sql` for grading; the app UI scopes organizer stats to the logged-in organizer only.
+- **Create event (organizer):** `GET /api/venues` lists venues for the form. `POST /api/events` (organizer JWT only) inserts **`events`** and one default **`ticket_types`** row (`Standard`, price/qty from the form). No separate “ticket type” UI — guests still book via that row.
+- **My bookings (guest):** `GET /api/bookings/mine` lists the guest’s bookings (read-only). No cancellation in the MVP UI — all sales final (§3.4).
+- **Book ticket (guest):** Before `POST /api/bookings`, the UI shows a **no-refund confirmation modal**; the user must acknowledge that sales are final (§3.4).
+- **No edit event** in MVP — events are not updated after create.
 
 ---
 
@@ -196,8 +211,10 @@ Document intended result columns so implementation matches the report.
 | Column         | Type             | Constraints / notes       |
 | -------------- | ---------------- | ------------------------- |
 | organizer_id   | `SERIAL` / `INT` | PK                        |
+| username       | `VARCHAR(50)`    | NOT NULL, UNIQUE          |
 | organizer_name | `VARCHAR(200)`   | NOT NULL                  |
 | email          | `VARCHAR(255)`   | NOT NULL, UNIQUE          |
+| password_hash  | `VARCHAR(255)`   | NULL — bcrypt for app login (§5.4) |
 | phone          | `VARCHAR(50)`    | NULL                      |
 | created_at     | `TIMESTAMP`      | NOT NULL, default `NOW()` |
 
@@ -211,6 +228,7 @@ Document intended result columns so implementation matches the report.
 | username   | `VARCHAR(50)`    | NOT NULL, UNIQUE          |
 | full_name  | `VARCHAR(200)`   | NOT NULL                  |
 | email      | `VARCHAR(255)`   | NOT NULL *(no UNIQUE — §5.3)* |
+| password_hash | `VARCHAR(255)` | NULL — bcrypt hash for app login; see §5.4 |
 | phone      | `VARCHAR(50)`    | NULL                      |
 | created_at | `TIMESTAMP`      | NOT NULL, default `NOW()` |
 
