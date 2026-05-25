@@ -75,7 +75,8 @@ sync_frontend() {
   git checkout main -- frontend/ docs/ README.md
   write_sync_marker frontend/.sync-from-main
   prune_junk
-  git add frontend/ docs/ README.md
+  git rm -r --cached frontend/node_modules 2>/dev/null || true
+  git add frontend/ docs/ README.md frontend/.sync-from-main
   if git diff --cached --quiet; then
     echo "frontend: no file changes vs main."
   else
