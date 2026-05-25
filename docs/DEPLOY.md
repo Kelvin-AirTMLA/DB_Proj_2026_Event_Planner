@@ -1,6 +1,6 @@
 # Deploying the Event Management MVP
 
-**Production demo:** [https://event-management-lzcd.onrender.com/](https://event-management-lzcd.onrender.com/) (QR in [README](../README.md#live-demo-deployed-mvp))
+**Production demo:** [https://db-proj-2026-event-planner.onrender.com/](https://db-proj-2026-event-planner.onrender.com/) (QR in [README](../README.md#live-demo-deployed-mvp))
 
 Recommended for the course: **Render** (free tier) — one **PostgreSQL** database + one **Web Service** that runs the API and serves the built React app.
 
@@ -54,7 +54,7 @@ Use this if you **already created Postgres on Render** and do not want a second 
 
 1. Dashboard → **New +** → **Blueprint**.
 2. Connect your GitHub repo (uses `render.yaml` — **web service only**, no new DB).
-3. After the blueprint finishes, open **event-management** → **Environment**.
+3. After the blueprint finishes, open **db-proj-2026-event-planner** → **Environment**.
 4. Set **`DATABASE_URL`** to your existing Postgres **Internal Database URL** (from the DB you created earlier).
 5. Save → **Manual Deploy** if needed.
 

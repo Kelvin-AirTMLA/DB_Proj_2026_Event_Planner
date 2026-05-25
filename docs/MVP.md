@@ -2,7 +2,7 @@
 
 Lightweight **React + FastAPI** app that demonstrates the PostgreSQL schema in [`specification.md`](specification.md). The UI is a **lens on the database** — grading focus stays on design, SQL, and analytics definitions (§6).
 
-**Live demo:** [https://event-management-lzcd.onrender.com/](https://event-management-lzcd.onrender.com/)  
+**Live demo:** [https://db-proj-2026-event-planner.onrender.com/](https://db-proj-2026-event-planner.onrender.com/)  
 **Deploy steps:** [`DEPLOY.md`](DEPLOY.md) · **Full spec:** [`specification.md`](specification.md)
 
 ---
@@ -38,7 +38,7 @@ Guests **cannot** open organizer analytics or check-in. Organizers **cannot** bo
 |---------------|----------------------------|
 | Browse events (+ optional date filters) | `SELECT` `events` (+ joins to venue/organizer) |
 | Event detail & book | `INSERT` `bookings`, `INSERT` `payments` (`completed`), decrement `ticket_types.quantity_available` |
-| Overlap warning before book | `SELECT` overlapping bookings for user (warn only; booking still allowed per spec §3.5) |
+| Booking precheck (`/api/bookings/overlap-warning`) | Time overlap warning (non-blocking) + **blocks second booking for the same event** (modal + API 409) |
 | No-refund confirm modal | UX only — policy in spec §3.4 |
 | My bookings (guest) | `SELECT` bookings/payments for current user (read-only; no cancel in UI) |
 | Create event (organizer) | `INSERT` `events`, `INSERT` `ticket_types` (default **Standard** tier) |
