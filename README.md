@@ -15,52 +15,6 @@ First load on Render free tier may take ~30s while the service wakes up.
 **MVP overview:** [`docs/MVP.md`](docs/MVP.md) (screens, API, roles).  
 **Documentation first:** finalize the living spec ([`docs/specification.md`](docs/specification.md)) — especially definitions for the three analytics queries — before locking DBML, SQL DDL, and seed data.
 
-## Git branches
-
-| Branch | You edit here | Lands on `main` via |
-|--------|---------------|---------------------|
-| **`main`** | Everything (deploy from here) | Direct commit or integrate scripts below |
-| **`db_schema`** | `schema/`, `queries/`, shared `docs/`, `README.md`, bootstrap scripts | `./scripts/integrate_slice_to_main.sh db_schema` |
-| **`backend`** | `backend/`, `render.yaml`, shared `docs/`, `README.md` | `./scripts/integrate_slice_to_main.sh backend` |
-| **`frontend`** | `frontend/`, shared `docs/`, `README.md` | `./scripts/integrate_slice_to_main.sh frontend` |
-| **`docs`** | `docs/`, `README.md` | `./scripts/integrate_slice_to_main.sh docs` |
-
-Slice branches stay **organized and safe** — you only see the folders for your area. **`main`** stays the full app; integration copies **paths only** (not a GitHub merge of the whole slice branch).
-
-### Two scripts (not `git merge`)
-
-| Direction | Script |
-|-----------|--------|
-| **Slice → `main`** (your work on `docs`, etc.) | [`scripts/integrate_slice_to_main.sh`](scripts/integrate_slice_to_main.sh) |
-| **`main` → all slices** (after integrate, or after a direct `main` fix) | [`scripts/sync_branches_from_main.sh`](scripts/sync_branches_from_main.sh) |
-
-Do **not** use GitHub **Merge PR** from `docs` → `main` — the slice branch history includes a “remove other folders” commit and GitHub will conflict or damage `main`. Use the integrate script instead.
-
-**Typical workflow (example: docs)**
-
-```bash
-git checkout docs
-# edit docs/specification.md, commit, push
-git push origin docs
-
-git checkout main
-./scripts/integrate_slice_to_main.sh docs   # copies docs/ + README into main
-./scripts/sync_branches_from_main.sh        # updates db_schema, backend, frontend, docs from main
-git push origin main
-git push --force-with-lease origin db_schema backend frontend docs
-```
-
-**If you changed `main` directly** (hotfix on full tree): skip integrate; run only `sync_branches_from_main.sh` and push.
-
-**If you are stuck mid-merge**
-
-```bash
-git merge --abort
-git fetch origin
-git reset --hard origin/docs   # or db_schema / backend / frontend
-git checkout main
-```
-
 ## Course deliverables
 
 ### Minimum required
@@ -262,7 +216,7 @@ The MVP covers **email or username + password** auth (register inserts into `use
 | `queries/` | Three course SQL reports |
 | `backend/` | FastAPI API (+ `static/` after frontend build) |
 | `frontend/` | React MVP |
-| `scripts/` | [`integrate_slice_to_main.sh`](scripts/integrate_slice_to_main.sh), [`sync_branches_from_main.sh`](scripts/sync_branches_from_main.sh), bootstrap, cleanup |
+| `scripts/` | Remote DB bootstrap (`bootstrap_remote_db.sh`) and repo cleanup helpers |
 | `docs/DEPLOY.md` | Render deployment |
 
 ---

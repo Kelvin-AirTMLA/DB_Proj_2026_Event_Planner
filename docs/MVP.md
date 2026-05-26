@@ -111,6 +111,4 @@ Chat, recommendations, maps, multi-currency, refunds, real payment providers, or
 | [`DEPLOY.md`](DEPLOY.md) | Render + Postgres |
 | [`DEFENSE_PRESENTATION.md`](DEFENSE_PRESENTATION.md) | Oral defense slides (Marp source) |
 
-**Branch workflow:** edit on the **`docs`** slice branch, then run `scripts/integrate_slice_to_main.sh docs` from **`main`**, then `scripts/sync_branches_from_main.sh` so every branch stays aligned. Do not merge the `docs` PR into `main` on GitHub — use the integrate script.
-
-Implementation code lives on **`main`** (`backend/`, `frontend/`).
+Deployable application code is on **`main`** (`backend/`, `frontend/`).
