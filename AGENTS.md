@@ -66,3 +66,5 @@ git push --force-with-lease origin db_schema backend frontend docs
 - Drive-by refactors outside the requested scope.
 - New features (refunds, multi-currency, etc.) that contradict the spec.
 - Committing secrets (`.env`, real DB passwords).
+- **`Co-authored-by: Cursor`** (or any AI agent) in commit messages — GitHub may list the agent as a contributor; use the student’s git identity only.
+- Leaving **merge conflict markers** (`<<<<<<<`, `=======`, `>>>>>>>`) in any committed file.
